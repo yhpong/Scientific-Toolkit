@@ -110,7 +110,7 @@ In the sample above .Init is used to initialize a 9 by 10 grid, which is chosen 
 .Get_node_labels is used to generate node_labels() which can be printed on each node, which is simply a comma-separated list of data points assigned to that node. In cases where a node has too many members, the label may become too long and cannot be shown on a chart. In that case you will need to devise your own way to generate the labels or simply note showing them at all.
 .Print_All_Dimension will then create charts on selected Excel worksheet.
 
-Only four out of thirteen attributes are shown above. Wines from W1 are mostly placed on the upper-right portion of the grad, W3 on the upper-left, and W2 occupies the lower-half. Compare these to the biplot in the PCA section to see how they rhyme with each other.
+Only four out of thirteen attributes are shown above. One each chart, blue means high value in that attribute, red means low, and yellow/green is in average. Wines from W1 are mostly placed on the upper-right portion of the grad, W3 on the upper-left, and W2 occupies the lower-half. Compare these to the biplot in the PCA section to see how they rhyme with each other.
 
 ### k-Means Clustering
 Requires: ckMeanCluster.cls
