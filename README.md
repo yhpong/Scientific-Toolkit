@@ -1,7 +1,9 @@
-# SciTool
-This is a VBA library of basic algorithms commonly used in data analysis. Althouhg there are many state of the art implementations of these algorithms in other languages like Matlab, R or Python, they are not often seen in VBA. While there are good reasons to not use Excel or VBA for these types of analysis, but if you are stuck with Excel either because of budget or IT policy constraints, then hopefully this library can offer a bit of help.
+# Scientific Toolkit for VBA
+This is a VBA library of basic algorithms commonly used in data analysis. Although there are many state of the art implementations of these algorithms in other languages like Matlab, R or Python, they are not often seen in VBA. While there are good reasons to not use Excel or VBA for these types of analysis, but if you are stuck with Excel either because of budget or IT policy constraints, then hopefully this library can offer a bit of help.
+
 The library is partly written for myself as a learning process, which is why some alogirhtms look redundant and can be replaced by native functions of Excel. I just wrote them for the heck of learning it. This is still an ongoing project and better documentations will come in time.
-In this Readme, I will showcase some capabilities of what can be done with the library.
+
+In this Readme, I will showcase some capabilities of what can be done with the library. The most basic module is modmath.bas, which contains everything from sorting algorithms to matrix decompositions. It will be a prerequisite for every section that follows.
 
 Test data here is wine data set from [UCI Machine Learning Datasets](https://archive.ics.uci.edu/ml/datasets.html)<sup>1</sup>. It consists of 178 samples of wines collected from three different cultivars, which will be named as W1, W2 and W3 in the following sections. 13 attributes of these wine samples were measured.
 
