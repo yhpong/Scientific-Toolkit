@@ -27,7 +27,8 @@ Now we are prepared to explore the data in a number of ways:
  - Self-Organizing Map
  - k-Means Clustering
  - Affinity Propagation
-
+ - Minimum Spanning Tree & Planar Maximally Filtered Graph
+ 
 ### Principal Component Analysis
 Requires: cPCA.cls
 
@@ -50,7 +51,7 @@ Requires: ctSNE.cls, cqtree.cls, cqtree_point.cls, mkdtree.bas
 
 ![tSNE](Screenshots/tSNE.jpg)
 
-While PCA is very simple and efficient, it has limited use when the varaibles are not-linearly related. In that case t-SNE maybe a better option.
+While PCA is very simple and efficient, it has limited use when the variables are not-linearly related. In that case t-SNE maybe a better option.
 ```
 Dim TS1 As New ctSNE
 With TS1
