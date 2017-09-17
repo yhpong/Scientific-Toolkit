@@ -2,25 +2,25 @@
 
 This is a VBA library of basic algorithms commonly used in data analysis. Although there are many state of the art implementations of these algorithms in other languages like Matlab, R or Python, they are not often seen in VBA. While there are good reasons to not use Excel or VBA for these types of analysis, but if you are stuck with Excel either because of budget or IT policy constraints, then hopefully this library can offer a bit of help.
 
-The library is partly written for myself as a learning process, which is why some alogirhtms look redundant and can be replaced by native functions of Excel. I just wrote them for the heck of learning it. This is still an ongoing project and better documentations will come in time.
+The library was written during my (still on-going) learning process, which is why some alogirhtms look redundant and can be replaced by native functions of Excel. I just wrote them for the heck of learning it. This is still an ongoing project and better documentations will come in time.
 
 In this Readme, I will showcase some capabilities of what can be done with the library. The most basic module is modmath.bas, which contains everything from sorting algorithms to matrix decompositions. It will be a prerequisite for every section that follows.
 
-Test data here is wine data set from [UCI Machine Learning Datasets](https://archive.ics.uci.edu/ml/datasets.html)<sup>1</sup>. It consists of 178 samples of wines collected from three different cultivars, which will be named as W1, W2 and W3 in the following sections. 13 attributes of these wine samples were measured.
+Test data here is wine data set from [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets.html)<sup>1</sup>. It consists of 178 samples of wines made from three different cultivars, which will be named as W1, W2 and W3 in the following sections. 13 attributes of these wine samples were measured.
 
 1. Forina, M. et al. [UCI Machine Learning Repository](http://archive.ics.uci.edu/ml). Institute of Pharmaceutical and Food Analysis and Technologies. 
 
 ## Unsupervised Learning
 
-Let's say we are given these sample of wines, without knowing where they are from. So we measure the 13 attributes of these samples, ranging from alchohol content to color intenisty. From the measurements we want to discover possible ways to classified these samples.
+Let's say we are given these sample of wines, without knowing where they are from. So we measure the 13 attributes of these samples, ranging from alchohol content to color intenisty. From the measurements we want to discover possible ways to classify these samples.
 
 First we will import the data, the data should take the form of an array x() of size N X D, where N=178 is the number of samples, D=13 is the number of dimensions. We will also have a vector x_class() of size N that holds the **true class** (W1, W2 or W3) of each sample.
 
-The data usually needs to be normalized in most types of analysis. We will use zero mean and unit varaince in this case. The syntax is:
+Data needs to be normalized in most cases. We will use zero mean and unit varaince in this case. The syntax is:
 ```
 Call modmath.Normalize_x(x,x_mean,x_sd,"AVGSD")
 ```
-Now we are prepared to explore the data in a number of ways:
+Now we are ready to explore the data in a number of ways:
  - Principal Component Analysis
  - t-SNE
  - Dendogram
@@ -38,11 +38,11 @@ Requires: cPCA.cls
 Dim PCA1 as new cPCA
 With PCA1
     Call .PCA(x)                            'Perform PCA transformation
-    x_projection=.x_PCA(2)                  'output projection of original data onto the first two components
+    x_projection = .x_PCA(2)                  'output projection of original data onto the first two components
     Call .BiPlot_Print(Range("I3"), 1, 2)   'output biplot of components 1 & 2
 End with
 ```
-The method .PCA performs a transformation on x. The transformed data can then be extracted with method .x_PCA. In this case the first 2 components are saved to x_projection, which is shown in the left chart above. We also output the biplot of PC1 and PC2 to cell I3, which can be chart in Excel in a normal way, shown on the right hand side.
+The method .PCA performs a linear transformation on x. The transformed data can then be extracted with method .x_PCA. In this case the first 2 components are saved to x_projection, which is shown in the left chart above. We also output the biplot of PC1 and PC2 to cell I3, which can be chart in Excel in a normal way, shown on the right hand side.
 
 Note that the data are color coded above to show the 3 true classes, to aid our evaluation on how well this method works. In a real life situation, we may not know what the true classes are, and one needs to manually define where they want to "slice" the dataset.
 
@@ -63,7 +63,7 @@ End With
 ```
 There are two methods in this class to perform transformation: .tSNE or .tSNE_BarnesHut. .tSNE is the simplest implementation of the algorithm but can be quite slow. .tSNE_BarnesHut uses a quadtree data structure to speed up the process when number of sample N is huge. When N is small, the overhead cost of BarnesHut may not be worth the effort. But for large N~1000 , BarnesHut is essential for a resonable excecution time. The method .Output extract the transformed data which is plotted in the above figures.
 
-Note that random initialization is implemented, and different realizations will converge to different results even when the same hyperparameters are used. The two figures above are two different runs. Although the charts look different, they both produce similar relative ordering.
+Note that random initialization is implemented, and different realizations will converge to different results even when the same hyperparameters are used. The two figures above are from two different runs. Although the charts look different, they both produce similar relative ordering.
 
 ### Hierarchical Clustering
 Requires: cHierarchical.cls
@@ -82,7 +82,7 @@ Requires: cHierarchical.cls
     End With
     Set HC1 = Nothing
 ```
-Then input to this class is a pairwise distance matrix instead of the raw data. We use Euclidean distance here which is calculated using modMAtch.Calc_Euclidean_Dist. The denogram can be built with either .Linkage or .NNChainLinkage as shown above. The only difference is that .NNChainLinkage uses Nearest-Neighbor-Chain to speed up the construction process.
+The input to this class is a pairwise distance matrix instead of the raw data. We use Euclidean distance here which is calculated using modMAtch.Calc_Euclidean_Dist. The denogram can be built with either .Linkage or .NNChainLinkage as shown above. The only difference is that .NNChainLinkage uses Nearest-Neighbor-Chain to speed up the construction process.
 
 An additional and optional processing step is to reorder the leaves using either .Optimal_leaf_ordering or .MOLO, to flip each subtree such that similar leaves are more likely to be shown together.
 
@@ -108,15 +108,15 @@ The algorithm of SOM itself is rather simple, much of the codes is actually dedi
 
 In the sample above .Init is used to initialize a 9 by 10 grid, which is chosen heuristically -  assuming 90 nodes for 178 samples means about 2 samples assigned to each node.
 .SOM_Hex_Train does the actual training and assign each datum to its appropriate node.
-.Get_node_labels is used to generate node_labels() which can be printed on each node, which is simply a comma-separated list of data points assigned to that node. In cases where a node has too many members, the label may become too long and cannot be shown on a chart. In that case you will need to devise your own way to generate the labels or simply note showing them at all.
+.Get_node_labels is used to generate node_labels() which can be printed on each node, which is simply a comma-separated list of data points assigned to that node. In cases where a node has too many members, the label may become too long and cannot be shown on a chart. In that case you will need to devise your own way to generate the labels or simply not showing them at all.
 .Print_All_Dimension will then create charts on selected Excel worksheet.
 
-Only four out of thirteen attributes are shown above. One each chart, blue means high value in that attribute, red means low, and yellow/green is in average. Wines from W1 are mostly placed on the upper-right portion of the grad, W3 on the upper-left, and W2 occupies the lower-half. Compare these to the biplot in the PCA section to see how they rhyme with each other.
+Only four out of thirteen attributes are shown above. One each chart, blue means high value in that attribute, red means low, and yellow/green is average. Wines from W1 are mostly placed on the upper-right portion of the grid, W3 on the upper-left, and W2 occupies the lower-half. Compare these to the biplot in the PCA section to see how they rhyme with each other.
 
 ### k-Means Clustering
 Requires: ckMeanCluster.cls
 
-So far the above methods only provide aids for you to see how you may slice the data, and which attribute is more relevant in classification than the others. In contrast, k-Means clustering directly separate samples into pre-specified number of clusters.
+So far the above methods only provide aids to see how the data may be sliced, and which attribute is more relevant in classification than the others. In contrast, k-Means clustering directly separate samples into pre-specified number of clusters.
 
 ![kMean](Screenshots/kMean.jpg)
 
@@ -156,9 +156,34 @@ Requires: cAffinityPropagation.cls
     End With
     Set AP1 = Nothing
 ```
-The input to this class is a pairwise similarity matrix. in this case we use the negative of Euclidean distance.
-Method .Affinity_Propagation is the main procedure that finds out which data points are the "exemplars", i.e. members that are the most represtative of their groups. .Exemplars return an integer vector that hold the points to which data is an exemplar. .Expemplar_index returns an integer vector of size N that holds the exemplar assigned to each data point.
+The input to this class is a pairwise similarity matrix. In this case we use the negative of Euclidean distance.
+Method .Affinity_Propagation is the main procedure that finds out which data points are the "exemplars", i.e. members that are the most representative of their groups. .Exemplars return an integer vector that holds the points to which data is an exemplar. .Expemplar_index returns an integer vector of size N that holds the exemplar assigned to each data point.
 
-The exemplars here are similar to the cluster centers in k-Means method above. But unlike k-Mean, the number of exemplars are not prespecified but dsicovered on the fly. The number of exemplars discovered is affected by the choice of the fith argument in .Affinity_Propagation, which can be "MIN", "MAX" or "MEDIAN". You may refer to [Frey, 2007](http://www.psi.toronto.edu/affinitypropagation/FreyDueckScience07.pdf)<sup>2</sup> to understand what that means.
+The exemplars here are similar to the cluster centers in k-Means method above. But unlike k-Means, the number of exemplars are not prespecified but discovered on the fly. That number is affected by the choice of the fifth argument in .Affinity_Propagation, which can be "MIN", "MAX" or "MEDIAN". You may refer to [Frey, 2007](http://www.psi.toronto.edu/affinitypropagation/FreyDueckScience07.pdf)<sup>2</sup> to understand what that means.
 
 In the figures above, the samples with black circles around them are discovered as the exemplars, and the lines map out the samples assigned to each of these exemplars. The 2D mapping was done in PCA, notice how each exemplar tends to sit at the center of its group.
+
+### Minimum Spanning Tree (MST) & Planar Maximally Filtered Graph (PMFG)
+Requires: cGraphAlgo.cls
+
+![MST](Screenshots/MST_PMFG.jpg)
+
+```
+    x_dist = modMath.Calc_Euclidean_Dist(x, True)
+    Dim G1 As New cGraphAlgo
+    With G1
+        Call .MST_Build(x_dist)    'if MST needs to be created
+        'Call .PMFG_Build(x_dist)   'if PMFG needs to be created
+        Call .ForceDirected_MultiLevel  'Optimize graph layout with force directed algorithm
+        node_chart = .node_pos
+        edge_chart = .Print_Edges
+        Call .Reset
+    End With
+    Set G1 = Nothing
+```
+
+Graph is a way to visualize the samples as a network. Each node represents a sample, and it's linked to other nodes by edges, each edge has weight assigned to it according to how similar a pair is. So in this example where we use Euclidean distance as a measure of similarity, there would be N(N-1)/2 edges in a full graph. It won't be very helpful if we show all these edges in a graph. MST is a way to reduce the edges shown so that only the edges that link the most similar pairs are shown, provided that no cycles are present in the graph. PMFG is similar but less aggressive in the edge reduction process. It allows cycles to appear but makes sure the graph is planar, i.e. the graph can be drawn on a plane without edges crossing each other. So PMFG results in a more detail graph than MST.
+
+The wine samples are shown in the above figures as MST on the left and PMFG on the right. They are created from the pairwise distance matrix using methods .MST_Build or .PMFG_Build in the class cGraphAlo. .ForceDirected_MultiLevel is used to generate a graph layout that's less cluttered. Once done the graph can be output with .node_pos and .Print_edges which can be chart in Excel.
+
+One big issue in this implementation is that PMFG takes very long time to create. It's using the method from [Boyer and Myrvold, 2004](http://jgaa.info/accepted/2004/BoyerMyrvold2004.8.3.pdf) to check for planarity at every addition of edge. If you are doing anything more than 500 nodes it's just impractical. If you know a faster way to do this I beg you to teach me how. I suspect I don't really need to run the full planarity test after every additonal edge.
