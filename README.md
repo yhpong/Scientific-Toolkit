@@ -4,7 +4,7 @@ This is a VBA library of basic algorithms commonly used in data analysis. Althou
 
 The library was written during my (still on-going) learning process, which is why some alogirhtms look redundant and can be replaced by native functions of Excel. I just wrote them for the heck of learning it. This is still an ongoing project and better documentations will come in time.
 
-In this Readme, I will showcase some capabilities of what can be done with the library. The most basic module is [modMath.bas](Modules\modMath.bas), which contains everything from sorting algorithms to matrix decompositions. It will be a prerequisite for every section that follows.
+In this Readme, I will showcase some capabilities of what can be done with the library. The most basic module is [modMath.bas](Modules/modMath.bas), which contains everything from sorting algorithms to matrix decompositions. It will be a prerequisite for every section that follows.
 
 Test data here is wine data set from [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets.html)<sup>1</sup>. It consists of 178 samples of wines made from three different cultivars, which will be named as W1, W2 and W3 in the following sections. 13 attributes of these wine samples were measured.
 
