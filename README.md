@@ -51,7 +51,7 @@ Requires: [ctSNE.cls](Modules/ctSNE.cls), [cqtree.cls](Modules/cqtree.cls), [cqt
 
 ![tSNE](Screenshots/tSNE.jpg)
 
-While PCA is very simple and efficient, it has limited use when the variables are not-linearly related. In that case t-SNE (inveted by [Laurens van der Maaten](https://lvdmaaten.github.io/tsne/)) maybe a better option.
+While PCA is very simple and efficient, it has limited use when the variables are not-linearly related. In that case t-SNE (invented by [Laurens van der Maaten](https://lvdmaaten.github.io/tsne/)) maybe a better option.
 ```
 Dim TS1 As New ctSNE
 With TS1
