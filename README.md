@@ -23,7 +23,7 @@ Call modmath.Normalize_x(x,x_mean,x_sd,"AVGSD")
 Now we are ready to explore the data in a number of ways:
  - Principal Component Analysis
  - t-SNE
- - Dendogram
+ - Dendrogram
  - Self-Organizing Map
  - k-Means Clustering
  - Affinity Propagation
