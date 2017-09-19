@@ -1,0 +1,189 @@
+Rank,Country Name,Country ISO,Life expectancy,Expected yrs of schooling,Mean yrs of schooling,GNI per capita
+1,Norway,NO,81.7,17.7,12.7,67614
+2,Switzerland,CH,83.1,16,13.4,56364
+2,Australia,AU,82.5,20.4,13.2,42822
+4,Germany,DE,81.1,17.1,13.2,45000
+5,Singapore,SG,83.2,15.4,11.6,78162
+5,Denmark,DK,80.4,19.2,12.7,44519
+7,Netherlands,NL,81.7,18.1,11.9,46326
+8,Ireland,IE,81.1,18.6,12.3,43798
+9,Iceland,IS,82.7,19,12.2,37065
+10,United States,US,79.2,16.5,13.2,53245
+10,Canada,CA,82.2,16.3,13.1,42582
+12,"Hong Kong, China (SAR)",HK,84.2,15.7,11.6,54265
+13,New Zealand,NZ,82,19.2,12.5,32870
+14,Sweden,SE,82.3,16.1,12.3,46251
+15,Liechtenstein,LI,80.2,14.6,12.4,75065
+16,United Kingdom,GB,80.8,16.3,13.3,37931
+17,Japan,JP,83.7,15.3,12.5,37268
+18,Korea (Republic of),KR,82.1,16.6,12.2,34541
+19,Israel,IL,82.6,16,12.8,31215
+20,Luxembourg,LU,81.9,13.9,12,62471
+21,France,FR,82.4,16.3,11.6,38085
+22,Belgium,BE,81,16.6,11.4,41243
+23,Finland,FI,81,17,11.2,38868
+24,Austria,AT,81.6,15.9,11.3,43609
+25,Slovenia,SI,80.6,17.3,12.1,28664
+26,Italy,IT,83.3,16.3,10.9,33573
+27,Spain,ES,82.8,17.7,9.8,32779
+28,Czech Republic,CZ,78.8,16.8,12.3,28144
+29,Greece,GR,81.1,17.2,10.5,24808
+30,Estonia,EE,77,16.5,12.5,26362
+30,Brunei Darussalam,BN,79,14.9,9,72843
+32,Andorra,AD,81.5,13.5,10.3,47979
+33,Qatar,QA,78.3,13.4,9.8,129916
+33,Malta,MT,80.7,14.6,11.3,29500
+33,Cyprus,CY,80.3,14.3,11.7,29459
+36,Poland,PL,77.6,16.4,11.9,24117
+37,Lithuania,LT,73.5,16.5,12.7,26006
+38,Saudi Arabia,SA,74.4,16.1,9.6,51320
+38,Chile,CL,82,16.3,9.9,21665
+40,Slovakia,SK,76.4,15,12.2,26764
+41,Portugal,PT,81.2,16.6,8.9,26104
+42,United Arab Emirates,AE,77.1,13.3,9.5,66203
+43,Hungary,HU,75.3,15.6,12,23394
+44,Latvia,LV,74.3,16,11.7,22589
+45,Croatia,HR,77.5,15.3,11.2,20291
+45,Argentina,AR,76.5,17.3,9.9,20945
+47,Bahrain,BH,76.7,14.5,9.4,37236
+48,Montenegro,ME,76.4,15.1,11.3,15410
+49,Russian Federation,RU,70.3,15,12,23286
+50,Romania,RO,74.8,14.7,10.8,19428
+51,Kuwait,KW,74.5,13.3,7.3,76075
+52,Oman,OM,77,13.7,8.1,34402
+52,Belarus,BY,71.5,15.7,12,15629
+54,Uruguay,UY,77.4,15.5,8.6,19148
+54,Barbados,BB,75.8,15.3,10.5,14952
+56,Kazakhstan,KZ,69.6,15,11.7,22093
+56,Bulgaria,BG,74.3,15,10.8,16261
+58,Bahamas,BS,75.6,12.7,10.9,21565
+59,Malaysia,MY,74.9,13.1,10.1,24620
+60,Palau,PW,72.9,14.3,12.3,13771
+60,Panama,PA,77.8,13,9.9,19470
+62,Antigua and Barbuda,AG,76.2,13.9,9.2,20907
+63,Seychelles,SC,73.3,14.1,9.4,23886
+64,Mauritius,MU,74.6,15.2,9.1,17948
+65,Trinidad and Tobago,TT,70.5,12.7,10.9,28049
+66,Serbia,RS,75,14.4,10.8,12202
+66,Costa Rica,CR,79.6,14.2,8.7,14006
+68,Cuba,CU,79.6,13.9,11.8,7455
+69,Iran (Islamic Republic of),IR,75.6,14.8,8.8,16395
+70,Georgia,GE,75,13.9,12.2,8856
+71,Venezuela (Bolivarian Republic of),VE,74.4,14.3,9.4,15129
+71,Turkey,TR,75.5,14.6,7.9,18705
+73,Sri Lanka,LK,75,14,10.9,10789
+74,Saint Kitts and Nevis,KN,74,13.7,8.4,22436
+75,Albania,AL,78,14.2,9.6,10252
+76,Lebanon,LB,79.5,13.3,8.6,13312
+77,Mexico,MX,77,13.3,8.6,16383
+78,Azerbaijan,AZ,70.9,12.7,11.2,16413
+79,Grenada,GD,73.6,15.8,8.6,11502
+79,Brazil,BR,74.7,15.2,7.8,14145
+81,Bosnia and Herzegovina,BA,76.6,14.2,9,10091
+82,The former Yugoslav Republic of Macedonia,MK,75.5,12.9,9.4,12405
+83,Algeria,DZ,75,14.4,7.8,13533
+84,Ukraine,UA,71.1,15.3,11.3,7361
+84,Armenia,AM,74.9,12.7,11.3,8189
+86,Jordan,JO,74.2,13.1,10.1,10111
+87,Thailand,TH,74.6,13.6,7.9,14519
+87,Peru,PE,74.8,13.4,9,11295
+89,Ecuador,EC,76.1,14,8.3,10536
+90,China,CN,76,13.5,7.6,13345
+91,Fiji,FJ,70.2,15.3,10.5,8245
+92,Mongolia,MN,69.8,14.8,9.8,10449
+92,Saint Lucia,LC,75.2,13.1,9.3,9791
+94,Jamaica,JM,75.8,12.8,9.6,8350
+95,Colombia,CO,74.2,13.6,7.6,12762
+96,Dominica,DM,77.9,12.8,7.9,10096
+97,Tunisia,TN,75,14.6,7.1,10249
+97,Suriname,SR,71.3,12.7,8.3,16018
+99,Saint Vincent and the Grenadines,VC,73,13.3,8.6,10372
+99,Dominican Republic,DO,73.7,13.2,7.7,12756
+101,Tonga,TO,73,14.3,11.1,5284
+102,Libya,LY,71.8,13.4,7.3,14303
+103,Belize,BZ,70.1,12.8,10.5,7375
+104,Samoa,WS,73.7,12.9,10.3,5372
+105,Uzbekistan,UZ,69.4,12.2,12,5748
+105,Maldives,MV,77,12.7,6.2,10383
+107,Moldova (Republic of),MD,71.7,11.8,11.9,5026
+108,Botswana,BW,64.5,12.6,9.2,14663
+109,Gabon,GA,64.9,12.6,8.1,19044
+110,Paraguay,PY,73,12.3,8.1,8182
+111,Turkmenistan,TM,65.7,10.8,9.9,14026
+111,Egypt,EG,71.3,13.1,7.1,10064
+113,Indonesia,ID,69.1,12.9,7.9,10053
+114,"Palestine, State of",PS,73.1,12.8,8.9,5256
+115,Viet Nam,VN,75.9,12.6,8,5335
+116,Philippines,PH,68.3,11.7,9.3,8395
+117,El Salvador,SV,73.3,13.2,6.5,7732
+118,Bolivia (Plurinational State of),BO,68.7,13.8,8.2,6155
+119,South Africa,ZA,57.7,13,10.3,12087
+120,Kyrgyzstan,KG,70.8,13,10.8,3097
+121,Iraq,IQ,69.6,10.1,6.6,11608
+122,Cabo Verde,CV,73.5,13.5,4.8,6049
+123,Morocco,MA,74.3,12.1,5,7195
+124,Nicaragua,NI,75.2,11.7,6.5,4747
+125,Namibia,NA,65.1,11.7,6.7,9770
+125,Guatemala,GT,72.1,10.7,6.3,7063
+127,Micronesia (Federated States of),FM,69.3,11.7,9.7,3291
+127,Guyana,GY,66.5,10.3,8.4,6884
+129,Tajikistan,TJ,69.6,11.3,10.4,2601
+130,Honduras,HN,73.3,11.2,6.2,4466
+131,India,IN,68.3,11.7,6.3,5663
+132,Bhutan,BT,69.9,12.5,3.1,7081
+133,Timor-Leste,TL,68.5,12.5,4.4,5371
+134,Vanuatu,VU,72.1,10.8,6.8,2805
+135,Congo,CG,62.9,11.1,6.3,5503
+135,Equatorial Guinea,GQ,57.9,9.2,5.5,21517
+137,Kiribati,KI,66.2,11.9,7.8,2475
+138,Lao People's Democratic Republic,LA,66.6,10.8,5.2,5049
+139,Zambia,ZM,60.8,12.5,6.9,3464
+139,Ghana,GH,61.5,11.5,6.9,3839
+139,Bangladesh,BD,72,10.2,5.2,3341
+142,Sao Tome and Principe,ST,66.6,12,5.3,3070
+143,Cambodia,KH,68.8,10.9,4.7,3095
+144,Nepal,NP,70,12.2,4.1,2337
+145,Myanmar,MM,66.1,9.1,4.7,4943
+146,Kenya,KE,62.2,11.1,6.3,2881
+147,Pakistan,PK,66.4,8.1,5.1,5031
+148,Swaziland,SZ,48.9,11.4,6.8,7522
+149,Syrian Arab Republic,SY,69.7,9,5.1,2441
+150,Angola,AO,52.7,11.4,5,6291
+151,Tanzania (United Republic of),TZ,65.5,8.9,5.8,2467
+152,Nigeria,NG,53.1,10,6,5443
+153,Cameroon,CM,56,10.4,6.1,2894
+154,Zimbabwe,ZW,59.2,10.3,7.7,1588
+154,Papua New Guinea,PG,62.8,9.9,4.3,2712
+156,Solomon Islands,SB,68.1,9.6,5.3,1561
+157,Mauritania,MR,63.2,8.5,4.3,3527
+158,Madagascar,MG,65.5,10.3,6.1,1320
+159,Rwanda,RW,64.7,10.8,3.8,1617
+160,Lesotho,LS,50.1,10.7,6.1,3319
+160,Comoros,KM,63.6,11.1,4.8,1335
+162,Senegal,SN,66.9,9.5,2.8,2250
+163,Uganda,UG,59.2,10,5.7,1670
+163,Haiti,HT,63.1,9.1,5.2,1657
+165,Sudan,SD,63.7,7.2,3.5,3846
+166,Togo,TG,60.2,12,4.7,1262
+167,Benin,BJ,59.8,10.7,3.5,1979
+168,Yemen,YE,64.1,9,3,2300
+169,Afghanistan,AF,60.7,10.1,3.6,1871
+170,Malawi,MW,63.9,10.8,4.4,1073
+171,Côte d'Ivoire,CI,51.9,8.9,5,3163
+172,Djibouti,DJ,62.3,6.3,4.1,3216
+173,Gambia,GM,60.5,8.9,3.3,1541
+174,Ethiopia,ET,64.6,8.4,2.6,1523
+175,Mali,ML,58.5,8.4,2.3,2218
+176,Congo (Democratic Republic of the),CD,59.1,9.8,6.1,680
+177,Liberia,LR,61.2,9.9,4.4,683
+178,Guinea-Bissau,GW,55.5,9.2,2.9,1369
+179,Sierra Leone,SL,51.3,9.5,3.3,1529
+179,Eritrea,ER,64.2,5,3.9,1490
+181,South Sudan,SS,56.1,4.9,4.8,1882
+181,Mozambique,MZ,55.5,9.1,3.5,1098
+183,Guinea,GN,59.2,8.8,2.6,1058
+184,Burundi,BI,57.1,10.6,3,691
+185,Burkina Faso,BF,59,7.7,1.4,1537
+186,Chad,TD,51.9,7.3,2.3,1991
+187,Niger,NE,61.9,5.4,1.7,889
+188,Central African Republic,CF,51.5,7.1,4.2,587
