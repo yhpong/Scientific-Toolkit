@@ -28,6 +28,7 @@ Now we are ready to explore the data in a number of ways:
  - k-Means Clustering
  - Affinity Propagation
  - Minimum Spanning Tree & Planar Maximally Filtered Graph
+ - Outliers Detection
  
 ### Principal Component Analysis
 Requires: [cPCA.cls](Modules/cPCA.cls)
@@ -190,3 +191,28 @@ Graph is a way to visualize the samples as a network. Each node represents a sam
 The wine samples are shown in the above figures as MST on the left and PMFG on the right. They are created from the pairwise distance matrix using methods .MST_Build or .PMFG_Build in the class cGraphAlo. .ForceDirected_MultiLevel is used to generate a graph layout that's less cluttered. Once done the graph can be output with .node_pos and .Print_edges which can be chart in Excel.
 
 One big issue in this implementation is that PMFG takes very long time to create. It's using the method from [Boyer and Myrvold, 2004](http://jgaa.info/accepted/2004/BoyerMyrvold2004.8.3.pdf) to check for planarity at every addition of edge. If you are doing anything more than 500 nodes it's just impractical. If you know a faster way to do this please feel free to share with me. I suspect there's no need to run the full planarity test after every additonal edge.
+
+### Outliers Detection
+
+Requires: [mOutliers.bas](Modules/mOutliers.bas)
+
+Upon working on a new data set, it could be worthwhile to scan the dataset for outliers, which can either be erroneous or represent some structural anomalies. For this example, we use a dataset from [Human Development Index](http://hdr.undp.org/en/composite/HDI), which measures 4 areas of developments for 188 countries: life expectancy, mean and expected years of schooling, and Gross National Income (GNI) per capita. The data as of 2015 is put into tabular format in [HDI_Data.csv](HDI_Data.csv). The data is again saved in a NxD array x(), where N=188 and D=4, it's then projected onto a 2D-plane of the first two principal components for visualization.
+
+The "outlier-ness" of each data can be meaurserd by these 4 measures: Mahalanobis distance, local outlier factor, distance to the k-th nearest neighbor, and [influence](https://las.inf.ethz.ch/files/lucic16outliers.pdf)<sup>1</sup>. Syntax of each is given below in the same order:
+```
+x_MD = mOutliers.MahalanobisDist(x)
+x_LOF = mOutliers.LOF(x, 5)
+x_kNN = mOutliers.KthNeighborDist_kdtree(x, 5)
+x_influence = mOutliers.Influence_Iterate(x)
+```
+![Outlier1](Screenshots/Outlier1.jpg)
+
+The figure above shows the four different outlier scores using bubble size as visual guide. You can see that for all the four charts, Qatar consistently shows a very high outlier score. 
+
+![Outlier2](Screenshots/Outlier2.jpg)
+
+If we want to understand what makes Qatar an outlier, we can look at the PCA Biplot. The position where Qatar sits in the chart is saying that it has a very high per capita GNI relative to other countries with similar level of life expectancy and education. This should comes at no surpise given how much oil Qatar produces.
+
+There is no clear cut-off value on any of these scores to define an outlier. In fact, outlier scores can be distorted by outliers themselves. So it's important to use visualization techniques mentioned in the above sections, together with prior knowledge on the nature of the data to help determine how to handle the data properly.
+
+1. Linear-Time Outlier Detection via Sensitivity, Mario Lucic (2016)
