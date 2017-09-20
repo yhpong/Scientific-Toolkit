@@ -8,7 +8,7 @@ Requires: [modMath.bas](Modules/modMath.bas)
 #### Available methods:
 
 ```Ruby
-PCA(x() As Double, Optional first_n As Long = 0, Optional use_SVD As Boolean = False, Optional save_rawdata As Boolean = False)
+PCA(x() As Double, Optional first_n As Long = 0, Optional use_SVD As Boolean = False)
 ```
 
 **Desc:** Perform PCA transformation on data x()
@@ -19,7 +19,6 @@ PCA(x() As Double, Optional first_n As Long = 0, Optional use_SVD As Boolean = F
                       Otherwise only first_n PCs are calculated using power iteration.  
 - use_SVD,      if set to TRUE, singular value decompositon is performed on x(). Otherise  
                       covariance matrix of x() is calculated and Jacobi method is used.  
-- save_rawdata, if set to TRUE then x() will be saved in class object and can be accessed by method .raw_data  
 
 ```Ruby
 Reset()
@@ -44,12 +43,12 @@ Val(Optional n_vec as variant) As Double()
 **Input:**  n_vec, number of values to return. If left blank then all calculated eigenvalues are returned
 
 ```Ruby
-x_PCA(Optional n_dim As Variant) As Double()
+x_PCA(Optional n_vec As Variant) As Double()
 ```
 
-**Desc:**  Read only property, return projections of raw data on the first n_dim PCs, in an array of size(1:N, 1:n_dim)
+**Desc:**  Read only property, return projections of raw data on the first n_vec PCs, in an array of size(1:N, 1:n_vec)
 
-**Input:** n_dim, number of components to return. If left blank then all calculated PCs are returned
+**Input:** n_vec, number of components to return. If left blank then all calculated PCs are returned
 
 ```Ruby
 BiPlot_Print(vRng As Range, Optional PC1 As Long = 1, Optional PC2 As Long = 2, Optional magnify As Double = 1)
@@ -85,7 +84,7 @@ tSNE(x() As Double, tgt_dimension As Long, _
             Optional learn_rate As Double = 100, Optional momentum As Double = 0.5, Optional max_iterate As Long = 1000, _
             Optional input_dist As Boolean = False)
 ```
-**Desc:** Project raw data x() on tgt_dimension.
+**Desc:** Project raw data x() onto tgt_dimension.
 
 **Input:** 
 - x(),          a NxD array of data, where N is number of samples and D is dimension of data  
@@ -105,17 +104,12 @@ tSNE_BarnesHut(x() As Double, tgt_dimension As Long, _
 ```
 **Desc:** Project raw data x() on tgt_dimension. Use tree to accelerate the process. Suitable for large number of samples.
 
-**Input:**  Same as tSNE.
+**Input:**  Same as tSNE. But tgt_dimension only supports 2D at the moment.
 
 ```Ruby
 Reset()
 ```
 **Desc:** Release memory from class object
-
-```Ruby
-raw_data() As Double()
-```
-**Desc:** Read only property, return raw data that was saved in class
 
 ```Ruby
 cost_function(Optional show_index As Boolean = False) As Double()
@@ -149,11 +143,6 @@ kMean_Clustering(x() As Double, k As Long, Optional iterate_max As Long = 100, O
 - strType, type of distance metrics to use. Supports "EUCLIDEAN", "CORREL"
 
 ```Ruby
-raw_data() As Double()
-```
-**Desc:** Read only property, returns originald data.
-
-```Ruby
 k_cluster() As Long
 ```
 **Desc:** Read only property, returns number of clusters.
@@ -177,7 +166,6 @@ x_cluster() As Long()
 Reset()
 ```
 **Desc:** Release memory from class
-
 
 
 ---
