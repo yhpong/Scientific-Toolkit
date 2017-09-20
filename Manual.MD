@@ -358,6 +358,17 @@ Init(L_x As Long, L_y As Long, dimension As Long)
 - dimension, dimension of data
 
 ```Ruby
+Read_Model(L_x As Long, L_y As Long, n_dimension As Long, node_w() As Double)
+```
+
+**Desc:** Intialize grid from previously saved node weights, which is an array of size (1:Lx, 1:Ly,1:D)
+
+**Input:**
+- L_x & L_y, horizontal and vertical number of cells
+- dimension, dimension of data
+- node_w, vectors of each node stored in an array of size (1:Lx, 1:Ly,1:D)
+
+```Ruby
 SOM_Hex_Train(x() As Double, _
         Optional iterate_max As Long = 5000, Optional learn_rate As Double = 0.1, _
         Optional batch_training As Boolean = False, Optional use_PCA As Boolean = True, _
