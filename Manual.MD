@@ -286,3 +286,54 @@ Find_Eigen(Optional iter_max As Long = 10000, Optional tolerance As Double = 0.0
 **Desc:** Calculate eigen-centrality of each node which can then be accessed by 'node_eigen'. Using power iteration.
 
 **Input:** iter_max and tolerance are the maximium iteration of tolerance in using power iteration.
+
+
+
+---
+### mOutliers.bas
+---
+This class is used to detect outliers in multidimensional data
+
+
+#### Available methods:
+
+```Ruby
+MahalanobisDist(x() As Double) As Double()
+```
+
+**Desc:** Return Malanobis Distance of data x(1:N, 1:D). Ouput is a vector of length N.
+
+**Input:** x(), a NxD array of data, where N is number of samples and D is dimension of data  
+
+```Ruby
+KthNeighborDist(x() As Double, Optional k As Long = 10, Optional usekdtree As Boolean = False) As Double()
+```
+
+**Desc:** Return k-th nearest neighor distance of x(1:N, 1:D). Ouput is a vector of length N. Uses Euclidean distance.
+
+**Input:** 
+- x(), a NxD array of data, where N is number of samples and D is dimension of data  
+- k, number of nearest neighbors to consider
+- usekdTree, use kd-Tree to speed up search when set to TRUE
+
+```Ruby
+LOF(x() As Double, Optional k As Long = 5) As Double()
+```
+
+**Desc:** Return local outlier factor of x(1:N, 1:D). Ouput is a vector of length N.
+
+**Input:** 
+- x(), a NxD array of data, where N is number of samples and D is dimension of data  
+- k, number of nearest neighbors to consider
+
+```Ruby
+Influence_Iterate(x() As Double, Optional iterate_max As Long = 30, _
+    Optional k_min As Long = 2, Optional k_max As Long = 10, Optional k_step As Long = 2) as Double()
+```
+
+**Desc:** Return influence of each data in x(1:N, 1:D). Ouput is a vector of length N. See '"Linear-Time Outlier Detection via Sensitivity", Mario Lucic, 2016 for reference.
+
+**Input:** 
+- x(), a NxD array of data, where N is number of samples and D is dimension of data
+- iterate_max, number of realizations
+- k_min & k_max & k_step, range of k-nearest neighbors to use in evaluation
