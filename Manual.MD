@@ -292,7 +292,7 @@ Find_Eigen(Optional iter_max As Long = 10000, Optional tolerance As Double = 0.0
 ---
 ### mOutliers.bas
 ---
-This class is used to detect outliers in multidimensional data
+This module is used to calculate outlierscores in multidimensional data
 
 
 #### Available methods:
@@ -337,3 +337,115 @@ Influence_Iterate(x() As Double, Optional iterate_max As Long = 30, _
 - x(), a NxD array of data, where N is number of samples and D is dimension of data
 - iterate_max, number of realizations
 - k_min & k_max & k_step, range of k-nearest neighbors to use in evaluation
+
+
+---
+### cSOM.cls
+---
+This class is used to create self-organizing map on a hexagonal grid
+
+
+#### Available methods:
+
+```Ruby
+Init(L_x As Long, L_y As Long, dimension As Long)
+```
+
+**Desc:** Intialize grid to necesary size
+
+**Input:**
+- L_x & L_y, horizontal and vertical number of cells
+- dimension, dimension of data
+
+```Ruby
+SOM_Hex_Train(x() As Double, _
+        Optional iterate_max As Long = 5000, Optional learn_rate As Double = 0.1, _
+        Optional batch_training As Boolean = False, Optional use_PCA As Boolean = True, _
+        Optional random_sampling As Boolean = True)
+```
+
+**Desc:** Train SOM on raw data x
+
+**Input:**
+- x(), raw data as an array of size (1:N, 1:D), where N is number of samples and D is dimension
+- iterate_max, maximum number of iterations
+- learn_rate, learning rate
+- batch_train, sequential training is performed if set to FALSE, otherwise batch mode is performed.
+- use_PCA, PCA is used to initialize grid if set to TRUE, otherwise random initialization is performed.
+- random_sampling, if batch_training is set to FALSE, then random sampling will feed in sample at random sequence.
+
+```Ruby
+Find_BMU(x() As Double, m As Long, n As Long, BMU_ED As Double)
+```
+
+**Desc:** Find best matching unit of x() on trained grid.
+
+**Input:** x(), vector of length (1:D) representing one sample
+
+**Output:**
+- m & n , horizontal and vertical position on grid
+- BMU_ED, distance from best matching unit.
+
+```Ruby
+Find_BMU_Batch(x() As Double, x_BMU() As Long, x_D2BMU() As Double)
+```
+
+**Desc:** Find best matching unit of x() on trained grid.
+
+**Input:** x(), matrix of size (1:N, 1:D) representing N samples of D-dimensionl data
+
+**Output:**
+- x_BMU() , array of size (1:N,1:2),  horizontal and vertical positions on grid
+- x_D2BMU(), vector of length 1:N, distance to best matching unit
+
+**Output:**
+- m & n , horizontal and vertical position on grid
+- BMU_ED, distance from best matching unit.
+
+```Ruby
+Get_Node_Labels(x_name As Variant, node_label() As String)
+```
+
+**Desc:** for each node on the grad, stitch names of its members and output as label for that node.
+
+**Input:** x_name(), vector of length (1:N) holding the name of each data.
+
+**Output:** node_label(), array of size (1:L_x, 1:L_y), node lables of each node on the grid
+
+**Read-Only Proeprties:**
+```Ruby
+quant_err() As Double()   'returns quatization error at each iteration
+x_BMU() As Long()         'best matching unit of each data in the training set, array of size (1:N, 1:2)
+x_D2BMU() As Double()     'distance to best matching unit of each data in the training set, vector of length (1:N)
+wgts() As Double()        'feature vector of each node, array of size (1:L_x, 1:L_y, 1:D)
+wgt(d as long) As Double() 'feature vector of each node in dimension d, array of size (1:L_x, 1:L_y)
+wgts_norm() As Double()   'euclidean norm of feature vector of each node, array of size (1:L_x, 1:L_y)
+UMatrix() As Double()     'avg distance of a node to its neighbours, array of size (1:L_x, 1:L_y).
+```
+
+```Ruby
+Print_Network_results(vRng As Range)
+```
+
+**Desc:** Output network parameters to an Excel range
+- 1st column: index
+- 2nd column: row index of node
+- 3rd column: column index of node
+- 4th column: norm of node's vector
+- 5th column: average distance to neighbor nodes
+- 6th column: node vector
+
+
+```Ruby
+Print_All_Dimensions(mysht As Worksheet, Optional cht_width As Long = 280, Optional cht_height As Long = 280, Optional markersize As Long = 17, Optional write_labels As Boolean = False, Optional node_labels As Variant, Optional factor_names As Variant)
+```
+
+**Desc:** Print SOM charts on selected worksheet
+
+**Input:**
+- mysht, destination worksheet to print charts
+- cht_width & cht_height, dimension of charts in points
+- markersize, size of nodes in points
+- write_labels, if TRUE then labels are displayed on charts.
+- node_labels, if write_labels is set to TRUE then this will be used as node_labels
+- factor_names, name of each dimension to be shown on top of each chart
