@@ -44,13 +44,13 @@ End Property
 Public Property Get wgt(d As Long) As Double()
 Dim i As Long, j As Long
 Dim y() As Double
-ReDim y(1 To pL_x, 1 To pL_y)
-For i = 1 To pL_x
-    For j = 1 To pL_y
-        y(i, j) = pnode_w(i, j, d)
-    Next j
-Next i
-wgt = y
+    ReDim y(1 To pL_x, 1 To pL_y)
+    For i = 1 To pL_x
+        For j = 1 To pL_y
+            y(i, j) = pnode_w(i, j, d)
+        Next j
+    Next i
+    wgt = y
 End Property
 
 Public Property Get wgts_norm() As Double()
@@ -63,27 +63,42 @@ End Property
 
 Sub Init(L_x As Long, L_y As Long, dimension As Long)
 Dim i As Long, j As Long, d As Long
-pL_x = L_x
-pL_y = L_y
-pdimension = dimension
-'Grid lines for visualization in Excel
-Call Me.HexGen(pL_x, pL_y, 1, pgrid_xy, pgrid_lines)
-ReDim pnode_w(1 To pL_x, 1 To pL_y, 1 To pdimension) 'feature vector of each node
-ReDim pnode_wnorm(1 To pL_x, 1 To pL_y)         'norm of feature vector of each node
-ReDim pnode_size(1 To pL_x, 1 To pL_y)          'size of each node
-ReDim pnode_UMatrix(1 To pL_x, 1 To pL_y)       'avg distance of a node to its neighbours
-ReDim pnode_ED(1 To pL_x, 1 To pL_y, 1 To 6)    'distance of a node to each of its 6 neighbours
-'Radomly initialize node weights
-For i = 1 To pL_x
-    For j = 1 To pL_y
-        Randomize
-        For d = 1 To dimension
-            pnode_w(i, j, d) = Rnd() / 10 '(-1 + 2 * Rnd())/10
-        Next d
-    Next j
-Next i
+    pL_x = L_x
+    pL_y = L_y
+    pdimension = dimension
+    'Grid lines for visualization in Excel
+    Call HexGen(pL_x, pL_y, 1, pgrid_xy, pgrid_lines)
+    ReDim pnode_w(1 To pL_x, 1 To pL_y, 1 To pdimension) 'feature vector of each node
+    ReDim pnode_wnorm(1 To pL_x, 1 To pL_y)         'norm of feature vector of each node
+    ReDim pnode_size(1 To pL_x, 1 To pL_y)          'size of each node
+    ReDim pnode_UMatrix(1 To pL_x, 1 To pL_y)       'avg distance of a node to its neighbours
+    ReDim pnode_ED(1 To pL_x, 1 To pL_y, 1 To 6)    'distance of a node to each of its 6 neighbours
+    'Radomly initialize node weights
+    For i = 1 To pL_x
+        For j = 1 To pL_y
+            Randomize
+            For d = 1 To dimension
+                pnode_w(i, j, d) = Rnd() / 10 '(-1 + 2 * Rnd())/10
+            Next d
+        Next j
+    Next i
 End Sub
 
+
+Sub Read_Model(L_x As Long, L_y As Long, n_dimension As Long, node_w() As Double)
+Dim i As Long, j As Long, k As Long
+Dim tmp_x As Double
+    pL_x = L_x
+    pL_y = L_y
+    pdimension = n_dimension
+    Call HexGen(pL_x, pL_y, 1, pgrid_xy, pgrid_lines)
+    pnode_w = node_w
+    ReDim pnode_wnorm(1 To pL_x, 1 To pL_y)
+    ReDim pnode_UMatrix(1 To pL_x, 1 To pL_y)
+    ReDim pnode_ED(1 To pL_x, 1 To pL_y, 1 To 6)
+    Call Calc_WNorm
+    Call Calc_UMatrix
+End Sub
 
 '=== Output network results
 '1st column: index
@@ -91,23 +106,23 @@ End Sub
 '3rd column: column index of node
 '4th column: norm of node's vector
 '5th column: average distance to neighbor nodes
-'6th column: node vector
+'6th column+: node vector
 Sub Print_Network_results(vRng As Range)
 Dim i As Long, j As Long, d As Long, n As Long
 With vRng
     n = 0
     For i = 1 To pL_x
-    For j = 1 To pL_y
-        .Offset(n, 0).Value = n + 1
-        .Offset(n, 1).Value = i
-        .Offset(n, 2).Value = j
-        .Offset(n, 3).Value = pnode_wnorm(i, j)
-        .Offset(n, 4).Value = pnode_UMatrix(i, j)
-        For d = 1 To pdimension
-            vRng.Offset(n, 4 + d).Value = pnode_w(i, j, d)
-        Next d
-        n = n + 1
-    Next j
+        For j = 1 To pL_y
+            .Offset(n, 0).Value = n + 1
+            .Offset(n, 1).Value = i
+            .Offset(n, 2).Value = j
+            .Offset(n, 3).Value = pnode_wnorm(i, j)
+            .Offset(n, 4).Value = pnode_UMatrix(i, j)
+            For d = 1 To pdimension
+                vRng.Offset(n, 4 + d).Value = pnode_w(i, j, d)
+            Next d
+            n = n + 1
+        Next j
     Next i
 End With
 End Sub
@@ -115,28 +130,29 @@ End Sub
 '=== Print grid lines for charts
 Sub Print_Grid(vRng As Range)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
-k = 0
-m = 0
-For i = 1 To pL_x
-    For j = 1 To pL_y
-        m = m + 1
-        vRng.Offset(m - 1, 0).Value = i
-        vRng.Offset(m - 1, 1).Value = j
-        vRng.Offset(m - 1, 2).Value = pgrid_xy(i, j, 1)
-        vRng.Offset(m - 1, 3).Value = pgrid_xy(i, j, 2)
-        For n = 1 To 7
-            vRng.Offset(k + n - 1, 4).Value = pgrid_lines(i, j, n, 1)
-            vRng.Offset(k + n - 1, 5).Value = pgrid_lines(i, j, n, 2)
-        Next n
-        k = k + 8
-    Next j
-Next i
+    k = 0
+    m = 0
+    For i = 1 To pL_x
+        For j = 1 To pL_y
+            m = m + 1
+            vRng.Offset(m - 1, 0).Value = i
+            vRng.Offset(m - 1, 1).Value = j
+            vRng.Offset(m - 1, 2).Value = pgrid_xy(i, j, 1)
+            vRng.Offset(m - 1, 3).Value = pgrid_xy(i, j, 2)
+            For n = 1 To 7
+                vRng.Offset(k + n - 1, 4).Value = pgrid_lines(i, j, n, 1)
+                vRng.Offset(k + n - 1, 5).Value = pgrid_lines(i, j, n, 2)
+            Next n
+            k = k + 8
+        Next j
+    Next i
 End Sub
 
 '== Format a chart of U-Matrix in gray scale
 Sub Format_UMatrix(cht As Chart, Optional write_labels As Boolean = False, Optional node_label As Variant)
 Dim i As Long, j As Long, n As Long, vR As Long
 Dim temp_max As Double, temp_min As Double, temp As Double
+Dim strtmp As String
 temp_max = -999999999
 temp_min = 999999999
 For i = 1 To pL_x
@@ -146,7 +162,7 @@ For i = 1 To pL_x
         If temp < temp_min Then temp_min = temp
     Next j
 Next i
-With cht.SeriesCollection(1)
+With cht.SeriesCollection(2)
     If .HasDataLabels = True Then .DataLabels.Delete
     If write_labels = True Then .ApplyDataLabels Type:=xlDataLabelsShowValue, AutoText:=True, LegendKey:=False
     n = 0
@@ -162,7 +178,12 @@ With cht.SeriesCollection(1)
                 With .Points(n).DataLabel
                     If pnode_size(i, j) > 0 Then
                         .Position = xlLabelPositionCenter
-                        .Text = node_label(i, j)
+                        strtmp = node_label(i, j)
+                        If VBA.Len(strtmp) > 50 Then
+                            strtmp = VBA.Left(strtmp, 50)
+                            Debug.Print "node label at (" & i & ", " & j & ") truncated."
+                        End If
+                        .Text = strtmp
                         .Format.TextFrame2.TextRange.Font.Size = 8
                         If vR < 75 Then .Font.Color = RGB(255, 255, 255)
                     Else
@@ -180,6 +201,7 @@ End Sub
 Sub Format_Grid(cht As Chart, node_attr() As Double, Optional write_labels As Boolean = False, Optional node_label As Variant)
 Dim i As Long, j As Long, n As Long, vR As Long, vG As Long, vB As Long
 Dim temp_max As Double, temp_min As Double, temp As Double
+Dim strtmp As String
 temp_max = -999999999
 temp_min = 999999999
 For i = 1 To pL_x
@@ -205,7 +227,12 @@ With cht.SeriesCollection(2)
                 With .Points(n).DataLabel
                     If pnode_size(i, j) > 0 Then
                         .Position = xlLabelPositionCenter
-                        .Text = node_label(i, j)
+                        strtmp = node_label(i, j)
+                        If VBA.Len(strtmp) > 50 Then
+                            strtmp = VBA.Left(strtmp, 50)
+                            Debug.Print "node label at (" & i & ", " & j & ") truncated."
+                        End If
+                        .Text = strtmp
                         .Font.Size = 8
                         If vB > 160 Then .Font.Color = RGB(255, 255, 255)
                     Else
@@ -223,37 +250,36 @@ End Sub
 'Input: x is a real number between 0 and 1
 'Output: vR,vG,vB are integers from 0 to 255
 Private Sub Color_Scale(x As Double, vR As Long, vG As Long, vB As Long)
-If x <= 0.5 Then
-    vR = 255
-    vG = Int(510 * x)
-    vB = 0
-Else
-    vR = Int(-510 * (x - 1))
-    vG = vR
-    vB = Int(510 * x - 255)
-End If
+    If x <= 0.5 Then
+        vR = 255
+        vG = Int(510 * x)
+        vB = 0
+    Else
+        vR = Int(-510 * (x - 1))
+        vG = vR
+        vB = Int(510 * x - 255)
+    End If
 End Sub
 
 'Input: x is a real number between 0 and 1
 'Output: vR are integers from 0 to 255
 Private Sub Gray_Scale(x As Double, vR As Long)
-vR = Int(-255 * (1 - Exp(-(x - 1) * 5)) / (1 + Exp(-(x - 1) * 5)))
+    vR = Int(-255 * (1 - Exp(-(x - 1) * 5)) / (1 + Exp(-(x - 1) * 5)))
 End Sub
 
 '=== Print weight vectors of each node
 Sub Print_Wgts(vRng As Range)
 Dim i As Long, j As Long, k As Long, d As Long
-k = 0
-For i = 1 To pL_x
-    For j = 1 To pL_y
-        For d = 1 To pdimension
-            vRng.Offset(k, d - 1) = pnode_w(i, j, d)
-        Next d
-        k = k + 1
-    Next j
-Next i
+    k = 0
+    For i = 1 To pL_x
+        For j = 1 To pL_y
+            For d = 1 To pdimension
+                vRng.Offset(k, d - 1) = pnode_w(i, j, d)
+            Next d
+            k = k + 1
+        Next j
+    Next i
 End Sub
-
 
 '=== Print grids of all dimensions
 Sub Print_All_Dimensions(mysht As Worksheet, Optional cht_width As Long = 280, Optional cht_height As Long = 280, Optional markersize As Long = 17, Optional write_labels As Boolean = False, Optional node_labels As Variant, Optional factor_names As Variant)
@@ -263,7 +289,7 @@ Dim myshp As Shape, mychart As Chart
 Dim attr_name() As String
     With mysht
         .Range("P2:U1000000").Clear
-        Call Me.Print_Grid(.Range("P1"))
+        Call Print_Grid(.Range("P1"))
         n_pt = pL_x * pL_y
         n = .Range("T100000").End(xlUp).Row
     End With
@@ -278,13 +304,24 @@ Dim attr_name() As String
             attr_name(i) = factor_names(i)
         Next i
     End If
-    
+
     m = mysht.ChartObjects.count
     If m = 0 Then
-        With mysht
-            Set myshp = .Shapes.AddChart2(240, xlXYScatterLinesNoMarkers, .Cells(3, 2).Left, .Cells(3, 2).Top, cht_width, cht_height)
-        End With
+        '=== Tested on Excel 2010
+        Set myshp = mysht.Shapes.AddChart
         Set mychart = myshp.Chart
+        With mychart
+            .Parent.Height = cht_height
+            .Parent.Width = cht_width
+            .Parent.Top = mysht.Cells(3, 2).Top
+            .Parent.Left = mysht.Cells(3, 2).Left
+            .ChartType = xlXYScatterLinesNoMarkers
+        End With
+        '=== Tested on Excel 2016
+'        With mysht
+'            Set myshp = .Shapes.AddChart2(240, xlXYScatterLinesNoMarkers, .Cells(3, 2).Left, .Cells(3, 2).Top, cht_width, cht_height)
+'        End With
+'        Set mychart = myshp.Chart
         With mychart
             .SetSourceData Source:=Range(mysht.Name & "!$T$1:$U$" & n)
             .SeriesCollection(1).Format.Line.Weight = 1
@@ -297,10 +334,11 @@ Dim attr_name() As String
             If .Axes(xlCategory).HasMajorGridlines Then .Axes(xlCategory).MajorGridlines.Delete
             If .Axes(xlValue).HasMajorGridlines Then .Axes(xlValue).MajorGridlines.Delete
             If .HasTitle Then .ChartTitle.Delete
+            If .HasLegend Then .Legend.Delete
         End With
         myshp.Name = "ATTR_001"
     End If
-    
+
     With mysht
         m = .ChartObjects.count
         If m > pdimension Then
@@ -344,6 +382,84 @@ Dim attr_name() As String
         Next d
     End With
 End Sub
+
+
+'=== Print grids of all dimensions
+Sub Print_wnorm_umatrix_chart(mysht As Worksheet, Optional cht_width As Long = 280, Optional cht_height As Long = 280, Optional markersize As Long = 17, Optional write_labels As Boolean = False, Optional node_labels As Variant)
+Dim i As Long, j As Long, d As Long, m As Long, n As Long, n_pt As Long
+Dim new_chart As Object
+Dim myshp As Shape, mychart As Chart, mychart_obj As ChartObject
+Dim strtmp As String
+    With mysht
+        .Range("P2:U1000000").Clear
+        Call Print_Grid(.Range("P1"))
+        n_pt = pL_x * pL_y
+        n = .Range("T100000").End(xlUp).Row
+    End With
+    
+    m = mysht.ChartObjects.count
+    If m = 0 Then
+        Set myshp = mysht.Shapes.AddChart
+        myshp.Name = "ATTR_WNORM"
+        Set mychart = myshp.Chart
+        With mychart
+            .Parent.Height = cht_height
+            .Parent.Width = cht_width
+            .Parent.Top = mysht.Cells(3, 2).Top
+            .Parent.Left = mysht.Cells(3, 2).Left
+            .ChartType = xlXYScatterLinesNoMarkers
+        End With
+        Set new_chart = mysht.ChartObjects("ATTR_WNORM").Duplicate
+        With new_chart
+            .Name = "ATTR_UMATRIX"
+            .Left = mysht.Cells(3, 8).Left
+            .Top = mysht.Cells(3, 8).Top
+        End With
+    ElseIf m > 2 Then
+        For i = m To 1 Step -1
+            strtmp = mysht.ChartObjects(i).Name
+            If strtmp <> "ATTR_WNORM" And strtmp <> "ATTR_UMATRIX" Then mysht.ChartObjects(m).Delete
+        Next i
+        m = mysht.ChartObjects.count
+        If m = 2 Then
+            mysht.ChartObjects(1).Name = "ATTR_WNORM"
+            mysht.ChartObjects(2).Name = "ATTR_UMATRIX"
+        End If
+    ElseIf m = 1 Then
+        Set mychart_obj = mysht.ChartObjects(1).Duplicate
+        mychart_obj.Left = mysht.Cells(3, 8).Left
+        mychart_obj.Top = mysht.Cells(3, 8).Top
+        mysht.ChartObjects(1).Name = "ATTR_WNORM"
+        mysht.ChartObjects(2).Name = "ATTR_UMATRIX"
+    End If
+    
+    For Each mychart_obj In mysht.ChartObjects
+        Set mychart = mychart_obj.Chart
+        With mychart
+            .SetSourceData Source:=Range(mysht.Name & "!$T$1:$U$" & n)
+            .SeriesCollection(1).Format.Line.Weight = 1
+            .SeriesCollection.NewSeries
+            .SeriesCollection(2).XValues = "=" & mysht.Name & "!$R$1:$R$" & n_pt
+            .SeriesCollection(2).Values = "=" & mysht.Name & "!$S$1:$S$" & n_pt
+            .SeriesCollection(2).MarkerStyle = 8
+            .SeriesCollection(2).markersize = markersize
+            .SeriesCollection(2).Format.Line.Visible = msoFalse
+            If .Axes(xlCategory).HasMajorGridlines Then .Axes(xlCategory).MajorGridlines.Delete
+            If .Axes(xlValue).HasMajorGridlines Then .Axes(xlValue).MajorGridlines.Delete
+            If .HasTitle Then .ChartTitle.Delete
+            If .HasLegend Then .Legend.Delete
+        End With
+    Next mychart_obj
+    
+    If write_labels = True Then
+        Call Format_Grid(mysht.ChartObjects("ATTR_WNORM").Chart, pnode_wnorm, True, node_labels)
+        Call Format_UMatrix(mysht.ChartObjects("ATTR_UMATRIX").Chart, True, node_labels)
+    Else
+        Call Format_Grid(mysht.ChartObjects("ATTR_WNORM").Chart, pnode_wnorm, False)
+        Call Format_UMatrix(mysht.ChartObjects("ATTR_UMATRIX").Chart, False)
+    End If
+End Sub
+
 
 
 '==== Train the SOM
@@ -404,15 +520,17 @@ End If
 '=== Save node to node distance
 'node_dist(i,j,m,n) is the square distance from node(i,j) to node(m,n)
 For i = 1 To pL_x
-Application.StatusBar = "Computing node to node distances..."
-For j = 1 To pL_y
-    For m = 1 To pL_x
-    For n = 1 To pL_y
-        node_dist(i, j, m, n) = (pgrid_xy(i, j, 1) - pgrid_xy(m, n, 1)) ^ 2 + (pgrid_xy(i, j, 2) - pgrid_xy(m, n, 2)) ^ 2
-    Next n
-    Next m
-Next j
-Application.StatusBar = False
+    DoEvents
+    Application.StatusBar = "Computing node to node distances..." & i & "/" & pL_x
+    For j = 1 To pL_y
+        For m = 1 To pL_x
+            For n = 1 To pL_y
+                node_dist(i, j, m, n) = (pgrid_xy(i, j, 1) - pgrid_xy(m, n, 1)) ^ 2 + _
+                        (pgrid_xy(i, j, 2) - pgrid_xy(m, n, 2)) ^ 2
+            Next n
+        Next m
+    Next j
+    Application.StatusBar = False
 Next i
 '========================================
 
@@ -463,7 +581,7 @@ For iterate = 1 To iterate_max
         Call get_vector(x, k, 1, xk)
         
         'Find BMU of current data
-        Call Me.Find_BMU(xk, m, n, BMU_ED)
+        Call Find_BMU(xk, m, n, BMU_ED)
         
         'Adjust the weights of each node
         For i = 1 To pL_x
@@ -480,7 +598,7 @@ For iterate = 1 To iterate_max
         
         '=== Batch Descent
         'Find BMU of every raw data point
-        Call Me.Find_BMU_Batch(x, px_BMU, px_D2BMU)
+        Call Find_BMU_Batch(x, px_BMU, px_D2BMU)
         
         'Adjust Weights of each node
         ReDim xk(1 To pL_x, 1 To pL_y, 1 To n_raw)
@@ -512,7 +630,7 @@ For iterate = 1 To iterate_max
         qerr = 0
         For k = 1 To n_raw
             Call get_vector(x, k, 1, xk)
-            Call Me.Find_BMU(xk, i, j, BMU_ED)
+            Call Find_BMU(xk, i, j, BMU_ED)
             qerr = qerr + BMU_ED
         Next k
         pquant_err(1, temp_j) = iterate
@@ -529,8 +647,7 @@ ReDim Preserve pquant_err(1 To 2, 1 To temp_j)
 '***********************************************************
 
 '=== Find the BMU of each training data
-Call Me.Find_BMU_Batch(x, px_BMU, px_D2BMU)
-'========================================
+Call Find_BMU_Batch(x, px_BMU, px_D2BMU)
 
 '==== Number of data assigned to each node
 For m = 1 To n_raw
@@ -538,114 +655,61 @@ For m = 1 To n_raw
     j = px_BMU(m, 2)
     pnode_size(i, j) = pnode_size(i, j) + 1
 Next m
-'========================================
 
 '=== Norm of weight vectors
-For i = 1 To pL_x
-    For j = 1 To pL_y
-        tmp_x = 0
-        For d = 1 To dimension
-            tmp_x = tmp_x + (pnode_w(i, j, d)) ^ 2
-        Next d
-        pnode_wnorm(i, j) = Sqr(tmp_x / dimension)
-    Next j
-Next i
-'========================================
+Call Calc_WNorm
 
 '=== U-Matrix Calculation
-For i = 1 To pL_x
-For j = 1 To pL_y
-    '=== U-Matrix Calculation
-    tmp_x = 0
-    k = 0
-    'loop through the 6 nearest neighbours
-    For n = -1 To 1 Step 2
-        If (j + n) >= 1 And (j + n) <= pL_y Then
-        k = k + 1
-        temp = 0
-        For d = 1 To dimension
-            temp = temp + (pnode_w(i, j, d) - pnode_w(i, j + n, d)) ^ 2
-        Next d
-        tmp_x = tmp_x + Sqr(temp)
-        If n = 1 Then pnode_ED(i, j, 1) = Sqr(temp)
-        If n = -1 Then pnode_ED(i, j, 2) = Sqr(temp)
-        End If
-    Next n
-    
-    For m = -1 To 1 Step 2
-    For n = 0 To 1
-        temp_i = i Mod 2
-        If (i + m) >= 1 And (i + m) <= pL_x And _
-            (j + n - temp_i) >= 1 And (j + 1 - temp_i) <= pL_y Then
-        k = k + 1
-        temp = 0
-        For d = 1 To dimension
-            temp = temp + (pnode_w(i, j, d) - pnode_w(i + m, j + n - temp_i, d)) ^ 2
-        Next d
-        tmp_x = tmp_x + Sqr(temp)
-        If m = -1 And n = 0 Then pnode_ED(i, j, 3) = Sqr(temp)
-        If m = -1 And n = 1 Then pnode_ED(i, j, 4) = Sqr(temp)
-        If m = 1 And n = 0 Then pnode_ED(i, j, 5) = Sqr(temp)
-        If m = 1 And n = 1 Then pnode_ED(i, j, 6) = Sqr(temp)
-        End If
-    Next n
-    Next m
-    pnode_UMatrix(i, j) = tmp_x / k
-    '========================================
-    
-Next j
-Next i
-'========================================
+Call Calc_UMatrix
 
 Application.StatusBar = False
-
 End Sub
 
 
 Sub Find_BMU(x() As Double, m As Long, n As Long, BMU_ED As Double)
 Dim i As Long, j As Long, d As Long
 Dim temp As Double
-BMU_ED = 1073741824 '2^30
-For i = 1 To pL_x
-    For j = 1 To pL_y
-        temp = 0
-        For d = 1 To pdimension
-            temp = temp + (x(d) - pnode_w(i, j, d)) ^ 2
-        Next d
-        If temp < BMU_ED Then
-            BMU_ED = temp
-            m = i
-            n = j
-        End If
-    Next j
-Next i
+    BMU_ED = Exp(70)
+    For i = 1 To pL_x
+        For j = 1 To pL_y
+            temp = 0
+            For d = 1 To pdimension
+                temp = temp + (x(d) - pnode_w(i, j, d)) ^ 2
+            Next d
+            If temp < BMU_ED Then
+                BMU_ED = temp
+                m = i
+                n = j
+            End If
+        Next j
+    Next i
 End Sub
 
 
 Sub Find_BMU_Batch(x() As Double, x_BMU() As Long, x_D2BMU() As Double)
 Dim i As Long, j As Long, k As Long, d As Long, m As Long, n As Long
 Dim tmp_min As Double, temp As Double
-ReDim x_BMU(1 To UBound(x, 1), 1 To 2)
-ReDim x_D2BMU(1 To UBound(x, 1))
-For k = 1 To UBound(x, 1)
-    tmp_min = 1073741824 '2^30
-    For i = 1 To pL_x
-        For j = 1 To pL_y
-            temp = 0
-            For d = 1 To pdimension
-                temp = temp + (x(k, d) - pnode_w(i, j, d)) ^ 2
-            Next d
-            If temp < tmp_min Then
-                tmp_min = temp
-                m = i
-                n = j
-            End If
-        Next j
-    Next i
-    x_D2BMU(k) = tmp_min
-    x_BMU(k, 1) = m
-    x_BMU(k, 2) = n
-Next k
+    ReDim x_BMU(1 To UBound(x, 1), 1 To 2)
+    ReDim x_D2BMU(1 To UBound(x, 1))
+    For k = 1 To UBound(x, 1)
+        tmp_min = Exp(70)
+        For i = 1 To pL_x
+            For j = 1 To pL_y
+                temp = 0
+                For d = 1 To pdimension
+                    temp = temp + (x(k, d) - pnode_w(i, j, d)) ^ 2
+                Next d
+                If temp < tmp_min Then
+                    tmp_min = temp
+                    m = i
+                    n = j
+                End If
+            Next j
+        Next i
+        x_D2BMU(k) = tmp_min
+        x_BMU(k, 1) = m
+        x_BMU(k, 2) = n
+    Next k
 End Sub
 
 
@@ -655,28 +719,28 @@ Sub Get_Node_Labels(x_name As Variant, node_label() As String)
 Dim i As Long, j As Long, m As Long, n As Long, n_raw As Long
 Dim x_ED() As Double
 Dim sort_index() As Long
-x_ED = px_D2BMU
-n_raw = UBound(x_ED, 1)
-Call modMath.Sort_Quick_A(x_ED, 1, n_raw, sort_index, 1)
-ReDim node_label(1 To pL_x, 1 To pL_y)
-For n = 1 To n_raw
-    m = sort_index(n)
-    i = px_BMU(m, 1)
-    j = px_BMU(m, 2)
-    If node_label(i, j) = "" Then
-        node_label(i, j) = "" & x_name(m)
-    Else
-        node_label(i, j) = node_label(i, j) & ", " & x_name(m)
-    End If
-Next n
+    x_ED = px_D2BMU
+    n_raw = UBound(x_ED, 1)
+    Call modMath.Sort_Quick_A(x_ED, 1, n_raw, sort_index, 1)
+    ReDim node_label(1 To pL_x, 1 To pL_y)
+    For n = 1 To n_raw
+        m = sort_index(n)
+        i = px_BMU(m, 1)
+        j = px_BMU(m, 2)
+        If node_label(i, j) = "" Then
+            node_label(i, j) = "" & x_name(m)
+        Else
+            node_label(i, j) = node_label(i, j) & ", " & x_name(m)
+        End If
+    Next n
 End Sub
 
 
-Function Grid2Idx(i As Long, j As Long) As Long
+Private Function Grid2Idx(i As Long, j As Long) As Long
     Grid2Idx = (i - 1) * pL_y + j
 End Function
 
-Sub Idx2Grid(idx As Long, i As Long, j As Long)
+Private Sub Idx2Grid(idx As Long, i As Long, j As Long)
     i = Int(idx * 1# / pL_y)
     j = idx Mod pL_y
 End Sub
@@ -684,25 +748,25 @@ End Sub
 
 'Input: x(1 to M, 1 to N), 2D Matrix
 'Output: y(), vector from the k-th row/column of x()
-Sub get_vector(x As Variant, k As Long, idim As Long, y As Variant)
+Private Sub get_vector(x As Variant, k As Long, idim As Long, y As Variant)
 Dim i As Long, n As Long
-If idim = 1 Then
-    n = UBound(x, 2)
-    ReDim y(1 To n)
-    For i = 1 To n
-        y(i) = x(k, i)
-    Next i
-ElseIf idim = 2 Then
-    n = UBound(x, 1)
-    ReDim y(1 To n)
-    For i = 1 To n
-        y(i) = x(i, k)
-    Next i
-End If
+    If idim = 1 Then
+        n = UBound(x, 2)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = x(k, i)
+        Next i
+    ElseIf idim = 2 Then
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = x(i, k)
+        Next i
+    End If
 End Sub
 
 
-Sub HexGen(lattice_x As Long, lattice_y As Long, L As Double, xy() As Double, xy_Edges() As Double)
+Private Sub HexGen(lattice_x As Long, lattice_y As Long, L As Double, xy() As Double, xy_Edges() As Double)
 Dim i As Long, j As Long, m As Long, n As Long
 Dim temp As Double, tmp_x As Double, tmp_y As Double
 
@@ -816,12 +880,12 @@ With mysht
     temp_max = -999999
     temp_min = 999999
     For i = 1 To pL_x
-    For j = 1 To pL_y
-    For n = 1 To 6
-    If pnode_ED(i, j, n) > temp_max Then temp_max = pnode_ED(i, j, n)
-    If pnode_ED(i, j, n) < temp_min Then temp_min = pnode_ED(i, j, n)
-    Next n
-    Next j
+        For j = 1 To pL_y
+            For n = 1 To 6
+                If pnode_ED(i, j, n) > temp_max Then temp_max = pnode_ED(i, j, n)
+                If pnode_ED(i, j, n) < temp_min Then temp_min = pnode_ED(i, j, n)
+            Next n
+        Next j
     Next i
     
     'Call Node_Max(node_UMatrix, temp_max, temp_min)
@@ -885,4 +949,70 @@ With mysht
     
 End With
 '========================================
+End Sub
+
+
+'=== Calcualte Norm of weight vectors
+Private Sub Calc_WNorm()
+Dim i As Long, j As Long, k As Long
+Dim tmp_x As Double
+    For i = 1 To pL_x
+        For j = 1 To pL_y
+            tmp_x = 0
+            For k = 1 To pdimension
+                tmp_x = tmp_x + (pnode_w(i, j, k)) ^ 2
+            Next k
+            pnode_wnorm(i, j) = Sqr(tmp_x / pdimension)
+        Next j
+    Next i
+End Sub
+
+
+'=== Calculate distance of each node to its neighbors
+Private Sub Calc_UMatrix()
+Dim i As Long, j As Long, m As Long, n As Long, k As Long, d As Long
+Dim temp As Double, temp_max As Double, temp_min As Double, tmp_x As Double
+Dim temp_i As Long, temp_j As Long
+
+    For i = 1 To pL_x
+        For j = 1 To pL_y
+        
+            tmp_x = 0
+            k = 0
+            'loop through the 6 nearest neighbours
+            For n = -1 To 1 Step 2
+                If (j + n) >= 1 And (j + n) <= pL_y Then
+                    k = k + 1
+                    temp = 0
+                    For d = 1 To pdimension
+                        temp = temp + (pnode_w(i, j, d) - pnode_w(i, j + n, d)) ^ 2
+                    Next d
+                    tmp_x = tmp_x + Sqr(temp)
+                    If n = 1 Then pnode_ED(i, j, 1) = Sqr(temp)
+                    If n = -1 Then pnode_ED(i, j, 2) = Sqr(temp)
+                End If
+            Next n
+            
+            For m = -1 To 1 Step 2
+                For n = 0 To 1
+                    temp_i = i Mod 2
+                    If (i + m) >= 1 And (i + m) <= pL_x And _
+                        (j + n - temp_i) >= 1 And (j + 1 - temp_i) <= pL_y Then
+                    k = k + 1
+                    temp = 0
+                    For d = 1 To pdimension
+                        temp = temp + (pnode_w(i, j, d) - pnode_w(i + m, j + n - temp_i, d)) ^ 2
+                    Next d
+                    tmp_x = tmp_x + Sqr(temp)
+                    If m = -1 And n = 0 Then pnode_ED(i, j, 3) = Sqr(temp)
+                    If m = -1 And n = 1 Then pnode_ED(i, j, 4) = Sqr(temp)
+                    If m = 1 And n = 0 Then pnode_ED(i, j, 5) = Sqr(temp)
+                    If m = 1 And n = 1 Then pnode_ED(i, j, 6) = Sqr(temp)
+                    End If
+                Next n
+            Next m
+            pnode_UMatrix(i, j) = tmp_x / k
+            
+        Next j
+    Next i
 End Sub
