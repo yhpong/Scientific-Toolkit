@@ -17,22 +17,17 @@ Option Explicit
 'Main reference:
 '"Visualizing High-Dimensional Data Using t-SNE", Laurens van der Maaten (2008)
 '"Accelerating t-SNE using Tree-Based Algorithms", Laurens van der Maaten (2014)
-'Implementations can be found on the suthor's page: https://lvdmaaten.github.io/tsne/
+'Implementations can be found on author's page: https://lvdmaaten.github.io/tsne/
 '===============================================================
 
-Private px() As Double  'Original data
 Private py() As Double  'Projection
 Private poutput_dimension As Long   'Number of dimensions in projections
 Private pcost_function() As Double
 
 Sub Reset()
     poutput_dimension = 0
-    Erase px, py, pcost_function
+    Erase py, pcost_function
 End Sub
-
-Public Property Get raw_data() As Double()
-raw_data = px
-End Property
 
 Public Property Get cost_function(Optional show_index As Boolean = False) As Double()
 Dim i As Long
@@ -50,7 +45,7 @@ End If
 End Property
 
 Public Property Get Output() As Double()
-Output = py
+    Output = py
 End Property
 
 
@@ -91,7 +86,6 @@ Dim cost_const As Double
 Dim gains() As Double
 Dim conv_chk As Double, conv_count As Long
 
-px = x
 poutput_dimension = tgt_dimension
 n_raw = UBound(x, 1)
 ReDim py(1 To n_raw, 1 To tgt_dimension)
@@ -223,24 +217,24 @@ Dim i As Long, j As Long, k As Long, m As Long, n As Long
 Dim tmp_x As Double, tmp_y As Double
 Dim n_raw As Long, n_dimension As Long
 Dim dist() As Double, x1() As Double
-n_raw = UBound(x, 1)
-n_dimension = UBound(x, 2)
-ReDim dist(1 To n_raw, 1 To n_raw)
-ReDim x1(1 To n_dimension)
-For i = 1 To n_raw - 1
-    For k = 1 To n_dimension
-        x1(k) = x(i, k)
-    Next k
-    For j = i + 1 To n_raw
-        tmp_x = 0
+    n_raw = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    ReDim dist(1 To n_raw, 1 To n_raw)
+    ReDim x1(1 To n_dimension)
+    For i = 1 To n_raw - 1
         For k = 1 To n_dimension
-            tmp_x = tmp_x + (x1(k) - x(j, k)) ^ 2
+            x1(k) = x(i, k)
         Next k
-        dist(i, j) = tmp_x
-        dist(j, i) = tmp_x
-    Next j
-Next i
-Calc_Euclidean_Dist = dist
+        For j = i + 1 To n_raw
+            tmp_x = 0
+            For k = 1 To n_dimension
+                tmp_x = tmp_x + (x1(k) - x(j, k)) ^ 2
+            Next k
+            dist(i, j) = tmp_x
+            dist(j, i) = tmp_x
+        Next j
+    Next i
+    Calc_Euclidean_Dist = dist
 End Function
 
 
@@ -535,7 +529,6 @@ If tgt_dimension <> 2 Then
     Exit Sub
 End If
 
-px = x
 poutput_dimension = tgt_dimension
 n_raw = UBound(x, 1)
 k_max = Int(3 * perplexity)

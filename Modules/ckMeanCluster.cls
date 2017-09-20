@@ -9,17 +9,11 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Explicit
 
-
-Private px() As Double
 Private pk As Long
 Private px_cluster() As Long        'cluster index of each data point
 Private pcluster_mean() As Double   'center of each cluster
 Private pcluster_size() As Long     'number of points  assigned to each cluster
 
-
-Public Property Get raw_data() As Double()
-    raw_data = px
-End Property
 
 Public Property Get k_cluster() As Long
     k_cluster = pk
@@ -39,7 +33,7 @@ End Property
 
 Sub Reset()
     pk = 0
-    Erase px, pcluster_mean, pcluster_size, px_cluster
+    Erase pcluster_mean, pcluster_size, px_cluster
 End Sub
 
 
@@ -59,7 +53,6 @@ Dim x_seeds() As Long
 strType = UCase(strType)
 n_raw = UBound(x, 1)
 n_dimension = UBound(x, 2)
-px = x
 pk = k
 ReDim px_cluster(1 To n_raw)
 ReDim pcluster_size(1 To pk)
@@ -227,7 +220,7 @@ Dim avg1 As Double, avg2 As Double, sd1 As Double, sd2 As Double
         Next d
         tmp_x = 2 * (1 - tmp_x / (sd1 * sd2 * n_dimension))
     Else
-        Debug.Print "k-means clustering: Invalid distance metric"
+        Debug.Print "k-means clustering: Invalid distance metric."
         Exit Function
     End If
     Dist2Center = tmp_x
@@ -258,11 +251,14 @@ Dim prob_C() As Double
     
     Randomize
     tmp_x = Rnd()
-    For i = 1 To n_raw
-        If tmp_x >= prob_C(i - 1) And tmp_x <= prob_C(i) Then
+    If tmp_x <= prob_C(1) Then
+        Random_Integer_Prob = 1
+        Exit Function
+    End If
+    For i = 2 To n_raw
+        If tmp_x > prob_C(i - 1) And tmp_x <= prob_C(i) Then
             Random_Integer_Prob = i
             Exit For
         End If
     Next i
 End Function
-

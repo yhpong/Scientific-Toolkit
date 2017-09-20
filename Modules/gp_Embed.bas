@@ -1,54 +1,6 @@
 Attribute VB_Name = "gp_Embed"
 Option Explicit
 
-Sub PlanarityTest()
-Dim i As Long, j As Long, k As Long
-Dim theGraph As cPMFG_Graph
-Dim mywkbk As Workbook
-Dim isPlanar As String
-Dim strtemp As String
-
-
-msgbox "ABC"
-
-Set mywkbk = ActiveWorkbook
-Call gp.ReadAdjMatrix(theGraph, mywkbk)
-isPlanar = Embed(theGraph)
-
-Debug.Print isPlanar
-
-With mywkbk.Sheets("Chart")
-.Range("R2:Y1000").Clear
-For i = 0 To (2 * theGraph.N_Nodes - 1 + 2 * theGraph.M_Edges)
-.Range("R" & 2 + i).Value = i
-.Range("S" & 2 + i).Value = theGraph.g(i).index
-.Range("T" & 2 + i).Value = theGraph.g(i).Link(0)
-.Range("U" & 2 + i).Value = theGraph.g(i).Link(1)
-.Range("V" & 2 + i).Value = theGraph.g(i).etype
-If i < theGraph.N_Nodes Then
-.Range("W" & 2 + i).Value = theGraph.Vertices(i).DFSParent
-.Range("X" & 2 + i).Value = theGraph.Vertices(i).Lowpoint
-.Range("Y" & 2 + i).Value = theGraph.Vertices(i).leastAncestor
-End If
-Next i
-End With
-
-'For i = 0 To theGraph.N_Nodes - 1
-'strtemp = i & " :"
-'j = theGraph.Vertices(i).separatedDFSChildList
-'
-'k = theGraph.DFSChildLists.LCGetPrev(j, -1)
-'Do While k <> -1
-'    strtemp = strtemp & " " & k
-'    k = theGraph.DFSChildLists.LCGetPrev(j, k)
-'Loop
-'Debug.Print strtemp
-'Next i
-
-Set mywkbk = Nothing
-
-End Sub
-
 
 Function Embed(theGraph As cPMFG_Graph) As String
 Dim n As Long, i As Long, j As Long, w As Long, child As Long

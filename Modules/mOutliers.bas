@@ -198,23 +198,22 @@ Dim covar_m() As Double, x_centered() As Double, MD() As Double
 End Function
 
 
-'=== Find Distance to K-th Nearest Neighbor with kd-tree data structure
-Function KthNeighborDist_kdtree(x() As Double, Optional k As Long = 10) As Double()
-Dim k_idx() As Long, k_dist() As Double
-    Call mkdTree.kNN_All(k_idx, k_dist, x, k, 1)
-    KthNeighborDist_kdtree = k_dist
-    Erase k_idx, k_dist
-End Function
-
-
 '=== Find Distance to K-th Nearest Neighbor
 'Input: feature vectors x(1 to n_raw,1 to dimension), and target number of neighbors k
 'Output Dk(1 to n_raw)
-Function KthNeighborDist(x() As Double, Optional k As Long = 10) As Double()
+Function KthNeighborDist(x() As Double, Optional k As Long = 10, Optional usekdtree As Boolean = False) As Double()
 Dim i As Long, j As Long, n As Long, n_raw As Long
 Dim neighbor_dist() As Double, neighbor() As Long
 Dim dist() As Double
 Dim Dk() As Double
+
+    If usekdtree = True Then
+        Call mkdTree.kNN_All(neighbor, dist, x, k, 1)
+        KthNeighborDist = dist
+        Erase neighbor, dist
+        Exit Function
+    End If
+
     DoEvents
     Application.StatusBar = "Calculating k-th Nearest Neighbor..."
     n_raw = UBound(x, 1)
