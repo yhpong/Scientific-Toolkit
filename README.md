@@ -2,17 +2,15 @@
 
 This is a VBA library of basic algorithms commonly used in data analysis. Although there are many state of the art implementations of these algorithms in other languages like Matlab, R or Python, they are not often seen in VBA. While there are good reasons to not use Excel or VBA for these types of analysis, but if you are stuck with Excel either because of budget or IT policy constraints, then hopefully this library can offer a bit of help.
 
-The library was written during my (still on-going) learning process, which is why some alogirhtms look redundant and can be replaced by native functions of Excel. I just wrote them for the heck of learning it. This is still an ongoing project and better documentations will come in time.
+The library was written to aid myself through my (still on-going) learning process, which is why some alogirhtms look redundant and can be replaced by built-in functions in Excel. I just wrote them for the heck of learning it. This is still an ongoing project and better documentations will come in time.
 
 In this Readme, I will showcase some capabilities of what can be done with the library. The most basic module is [modMath.bas](Modules/modMath.bas), which contains everything from sorting algorithms to matrix decompositions. It will be a prerequisite for every section that follows. The examples can be found in [SciTool_Demo_01.xlsm](Modules/SciTool_Demo_01.xlsm)
 
-Test data here is wine data set from [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets.html)<sup>1</sup>. It consists of 178 samples of wines made from three different cultivars, which will be named as W1, W2 and W3 in the following sections. 13 attributes of these wine samples were measured.
+## Visualization / Clustering of high dimensional data
 
-1. Forina, M. et al. [UCI Machine Learning Repository](http://archive.ics.uci.edu/ml). Institute of Pharmaceutical and Food Analysis and Technologies. 
+Test data here is wine data set from [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets.html)<sup>1</sup>. It consists of 178 samples of wines made from three different cultivars, which will be named as W1, W2 and W3 in the following sections. 13 attributes of these wine samples were measured, ranging from alchohols content to color intenisty. We want find a way to visualize these 13 dimensions, and use them to classify the 178 samples into clusters.
 
-## Unsupervised Learning
-
-Let's say we are given these sample of wines, without knowing where they are from. So we measure the 13 attributes of these samples, ranging from alchohol content to color intenisty. From the measurements we want to discover possible ways to classify these samples.
+*1. Forina, M. et al. [UCI Machine Learning Repository](http://archive.ics.uci.edu/ml). Institute of Pharmaceutical and Food Analysis and Technologies. *
 
 First we will import the data, the data should take the form of an array x() of size N X D, where N=178 is the number of samples, D=13 is the number of dimensions. We will also have a vector x_class() of size N that holds the **true class** (W1, W2 or W3) of each sample.
 
@@ -43,7 +41,7 @@ With PCA1
     Call .BiPlot_Print(Range("I3"), 1, 2)   'output biplot of components 1 & 2
 End with
 ```
-The method .PCA performs a linear transformation on x. The transformed data can then be extracted with method .x_PCA. In this case the first 2 components are saved to x_projection, which is shown in the left chart above. We also output the biplot of PC1 and PC2 to cell I3, which can be chart in Excel in a normal way, shown on the right hand side.
+The method .PCA performs a orthogonal transformation on x. The transformed data can then be extracted with method .x_PCA. In this case the first 2 components are saved to x_projection, which is shown in the left chart above. We also output the biplot of PC1 and PC2 to cell I3, which can be chart in Excel using scatter chart, shown on the right hand side.
 
 Note that the data are color coded above to show the 3 true classes, to aid our evaluation on how well this method works. In a real life situation, we may not know what the true classes are, and one needs to manually define where they want to "slice" the dataset.
 
@@ -52,7 +50,7 @@ Requires: [ctSNE.cls](Modules/ctSNE.cls), [cqtree.cls](Modules/cqtree.cls), [cqt
 
 ![tSNE](Screenshots/tSNE.jpg)
 
-While PCA is very simple and efficient, it has limited use when the variables are not-linearly related. In that case t-SNE (invented by [Laurens van der Maaten](https://lvdmaaten.github.io/tsne/)) maybe a better option.
+While PCA is very simple and efficient, it has limited use when the variables have high-order dependencies ([J Shlens 2014](https://arxiv.org/pdf/1404.1100.pdf)). In that case t-SNE (invented by [Laurens van der Maaten](https://lvdmaaten.github.io/tsne/)) maybe a better option.
 ```
 Dim TS1 As New ctSNE
 With TS1
@@ -115,7 +113,7 @@ In the sample above .Init is used to initialize a 9 by 10 grid, which is chosen 
 .Get_node_labels is used to generate node_labels() which can be printed on each node, which is simply a comma-separated list of data points assigned to that node. In cases where a node has too many members, the label may become too long and cannot be shown on a chart. In that case you will need to devise your own way to generate the labels or simply not showing them at all.
 .Print_All_Dimension will then create charts on selected Excel worksheet.
 
-Only four out of thirteen attributes are shown above. One each chart, blue means high value in that attribute, red means low, and yellow/green is average. Wines from W1 are mostly placed on the upper-right portion of the grid, W3 on the upper-left, and W2 occupies the lower-half. Compare these to the biplot in the PCA section to see how they rhyme with each other.
+Only four out of thirteen attributes are shown above. On each chart, blue means high value in that attribute, red means low, and yellow/green is average. Wines from W1 are mostly placed on the upper-right portion of the grid, W3 on the upper-left, and W2 occupies the lower-half. Compare these to the biplot in the PCA section to see how they rhyme with each other.
 
 ### k-Means Clustering
 Requires: [ckMeanCluster.cls](Modules/ckMeanCluster.cls)
