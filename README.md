@@ -4,7 +4,7 @@ This is a VBA library of basic algorithms commonly used in data analysis. Althou
 
 The library was written to aid myself through my (still on-going) learning process, which is why some alogirhtms look redundant and can be replaced by built-in functions in Excel. I just wrote them for the heck of learning it. This is still an ongoing project and better documentations will come in time.
 
-In this Readme, I will showcase some capabilities of what can be done with the library. The most basic module is [modMath.bas](Modules/modMath.bas), which contains everything from sorting algorithms to matrix decompositions. It will be a prerequisite for every section that follows. The examples can be found in [SciTool_Demo_01.xlsm](Modules/SciTool_Demo_01.xlsm)
+In this Readme, I will showcase some capabilities of this library with a few lines of sample codes. The most basic module is [modMath.bas](Modules/modMath.bas), which contains everything from sorting algorithms to matrix decompositions. It will be a prerequisite for every section that follows. The examples can be found in [SciTool_Demo_01.xlsm](Modules/SciTool_Demo_01.xlsm)
 
 ## Visualization / Clustering of high dimensional data
 
