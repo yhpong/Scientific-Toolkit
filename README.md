@@ -12,7 +12,7 @@ Test data here is wine data set from [UCI Machine Learning Repository](https://a
 
 *1. Forina, M. et al. [UCI Machine Learning Repository](http://archive.ics.uci.edu/ml). Institute of Pharmaceutical and Food Analysis and Technologies. *
 
-First we will import the data, the data should take the form of an array x() of size N X D, where N=178 is the number of samples, D=13 is the number of dimensions. We will also have a vector x_class() of size N that holds the **true class** (W1, W2 or W3) of each sample.
+First we will import the data, the data should take the form of an array *x()* of size N X D, where N=178 is the number of samples, D=13 is the number of dimensions. We will also have a vector *x_class()* of size N that holds the **true class** (W1, W2 or W3) of each sample.
 
 Data needs to be normalized in most cases. We will use zero mean and unit varaince in this case. The syntax is:
 ```
@@ -41,7 +41,7 @@ With PCA1
     Call .BiPlot_Print(Range("I3"), 1, 2)   'output biplot of components 1 & 2
 End with
 ```
-The method .PCA performs a orthogonal transformation on x. The transformed data can then be extracted with method .x_PCA. In this case the first 2 components are saved to x_projection, which is shown in the left chart above. We also output the biplot of PC1 and PC2 to cell I3, which can be chart in Excel using scatter chart, shown on the right hand side.
+The method `.PCA` performs a orthogonal transformation on *x*. The transformed data can then be extracted with method `.x_PCA`. In this case the first 2 components are saved to *x_projection*, which is shown in the left chart above. We also output the biplot of PC1 and PC2 to cell I3, which can be chart in Excel using scatter chart, shown on the right hand side.
 
 Note that the data are color coded above to show the 3 true classes, to aid our evaluation on how well this method works. In a real life situation, we may not know what the true classes are, and one needs to manually define where they want to "slice" the dataset.
 
@@ -60,7 +60,7 @@ With TS1
     Call .Reset                 'release memory
 End With
 ```
-There are two methods in this class to perform transformation: .tSNE or .tSNE_BarnesHut. .tSNE is the simplest implementation of the algorithm but can be quite slow. .tSNE_BarnesHut uses a quadtree data structure to speed up the process when number of sample N is huge. When N is small, the overhead cost of BarnesHut may not be worth the effort. But for large N~1000 , BarnesHut is essential for a resonable excecution time. The method .Output extract the transformed data which is plotted in the above figures.
+There are two methods in this class to perform transformation: `.tSNE` or `.tSNE_BarnesHut`. `.tSNE` is the simplest implementation of the algorithm but can be quite slow. `.tSNE_BarnesHut` uses a quadtree data structure to speed up the process when number of sample N is huge. When N is small, the overhead cost of BarnesHut may not be worth the effort. But for large N~1000 , BarnesHut is essential for a resonable excecution time. The method .Output extract the transformed data which is plotted in the above figures.
 
 Note that random initialization is implemented, and different realizations will converge to different results even when the same hyperparameters are used. The two figures above are from two different runs. Although the charts look different, they both produce similar relative ordering.
 
@@ -81,11 +81,11 @@ Requires: [cHierarchical.cls](Modules/cHierarchical.cls)
     End With
     Set HC1 = Nothing
 ```
-The input to this class is a pairwise distance matrix instead of the raw data. We use Euclidean distance here which is calculated using modMAtch.Calc_Euclidean_Dist. The denogram can be built with either .Linkage or .NNChainLinkage as shown above. The only difference is that .NNChainLinkage uses Nearest-Neighbor-Chain to speed up the construction process.
+The input to this class is a pairwise distance matrix instead of the raw data. We use Euclidean distance here which is calculated using `modMath.Calc_Euclidean_Dist`. The denogram can be built with either `.Linkage` or `.NNChainLinkage` as shown above. The only difference is that `.NNChainLinkage` uses Nearest-Neighbor-Chain to speed up the construction process.
 
-An additional and optional processing step is to reorder the leaves using either .Optimal_leaf_ordering<sup>1</sup> or .MOLO<sup>2</sup>, to flip each subtree such that similar leaves are more likely to be shown together.
+An additional and optional processing step is to reorder the leaves using either `.Optimal_leaf_ordering`<sup>1</sup> or `.MOLO`<sup>2</sup>, to flip each subtree such that similar leaves are more likely to be shown together.
 
-Once done .Print_Tree can be used to print the the data in Excel and chart with scatter charts. A polar embedding version of the dendogram is also available, which in some cases may be more aesthetically pleasing. Notice how the 3 distinct branches correspond the the 3 true classes.
+Once done .Print_Tree is used to print the the data in Excel and chart with scatter charts. A polar embedding version of the dendogram is also available, which in some cases may be more aesthetically pleasing. Notice how the 3 distinct branches correspond the the 3 true classes.
 
 1. Fast optimal leaf ordering for hierarchical clustering, Ziv Bar-Joseph et al, 2001
 2. dendsort: modular leaf ordering methods for dendrogram representations in R, Ryo Sakai et al, 2014
@@ -129,7 +129,7 @@ So far the above methods only provide aids to see how the data may be sliced, an
         cluster_index = .x_cluster   'Integer vector of size N, holding the cluster assigment
     End With
 ```
-Use method .kMean_Clustering to divide the samples into desired number of clusters. In the example here, let's pretend we do not know there are 3 true classes, and attempt to classify them into 5 groups. The cluster assignment is then returned by .x_cluster as an integer vector of size N, with values from 1 to 5.
+Use method `.kMean_Clustering` to divide the samples into desired number of clusters. In the example here, let's pretend we do not know there are 3 true classes, and attempt to classify them into 5 groups. The cluster assignment is then returned by `.x_cluster` as an integer vector of size N, with values from 1 to 5.
 
 In the above figure, data was sorted according to their first principal component, color-coded and lines were used to visualize their mapping to the 5 resulting clusters. You can see that samples from the same true class tend to get assigned to the same cluster, which is good. But a few samples from class W1 are assigned to cluster 2, which is dominantly occupied by samples from W2. When you combine this with the PCA analysis, you will notice these "incorrectly" assigned samples are the ones who lie near the boundary of transition from W1 to W2.
 
@@ -159,9 +159,9 @@ Requires: [cAffinityPropagation.cls](Modules/cAffinityPropagation.cls)
     Set AP1 = Nothing
 ```
 The input to this class is a pairwise similarity matrix. In this case we use the negative of Euclidean distance.
-Method .Affinity_Propagation is the main procedure that finds out which data points are the "exemplars", i.e. members that are the most representative of their groups. .Exemplars returns an integer vector that holds the pointers to which data is an exemplar. .Expemplar_index returns an integer vector of size N that holds the exemplar assigned to each data point.
+Method `.Affinity_Propagation` is the main procedure that finds out which data points are the "exemplars", i.e. members that are the most representative of their groups. `.Exemplars` returns an integer vector that holds the pointers to which data is an exemplar. `.Expemplar_index` returns an integer vector of size N that holds the exemplar assigned to each data point.
 
-The exemplars here are similar to the cluster centers in k-Means method above. But unlike k-Means, the number of exemplars are not prespecified but discovered on the fly. That number is affected by the choice of the fifth argument in .Affinity_Propagation, which can be "MIN", "MAX" or "MEDIAN". You may refer to [Frey, 2007](http://www.psi.toronto.edu/affinitypropagation/FreyDueckScience07.pdf)<sup>2</sup> to understand what that means.
+The exemplars here are similar to the cluster centers in k-Means method above. But unlike k-Means, the number of exemplars are not prespecified but discovered on the fly. That number is affected by the choice of the fifth argument in `.Affinity_Propagation`, which can be "MIN", "MAX" or "MEDIAN". You may refer to [Frey, 2007](http://www.psi.toronto.edu/affinitypropagation/FreyDueckScience07.pdf)<sup>2</sup> to understand what that means.
 
 In the figures above, the samples with black circles around them are discovered as the exemplars, and the lines map out the samples assigned to each of these exemplars. The 2D mapping was done in PCA, notice how each exemplar tends to sit at the center of its group.
 
@@ -186,7 +186,7 @@ Requires: [cGraphAlgo.cls](Modules/cGraphAlgo.cls), [cHeap.cls](Modules/cHeap.cl
 
 Graph is a way to visualize the samples as a network. Each node represents a sample, and it's linked to other nodes by edges, each edge has a weight assigned to it according to how similar a pair is. So in this example where we use Euclidean distance as a measure of similarity, there would be N(N-1)/2 edges in a full graph. It won't be very helpful if we show all these edges in a graph. MST is a way to reduce the edges shown so that only the edges that link the most similar pairs are shown, provided that no cycles are present in the graph. PMFG is similar but less aggressive in the edge reduction process. It allows cycles to appear but makes sure the graph is planar, i.e. the graph can be drawn on a plane without edges crossing each other. So PMFG results in a more detail graph than MST.
 
-The wine samples are shown in the above figures as MST on the left and PMFG on the right. They are created from the pairwise distance matrix using methods .MST_Build or .PMFG_Build in the class cGraphAlo. .ForceDirected_MultiLevel is used to generate a graph layout that's less cluttered. Once done the graph can be output with .node_pos and .Print_edges which can be chart in Excel.
+The wine samples are shown in the above figures as MST on the left and PMFG on the right. They are created from the pairwise distance matrix using methods `.MST_Build` or `.PMFG_Build` in the class cGraphAlo. `.ForceDirected_MultiLevel` is used to generate a graph layout that's less cluttered. Once done the graph can be output with `.node_pos` and `.Print_edges` which can be chart in Excel.
 
 One big issue in this implementation is that PMFG takes very long time to create. It's using the method from [Boyer and Myrvold, 2004](http://jgaa.info/accepted/2004/BoyerMyrvold2004.8.3.pdf) to check for planarity at every addition of edge. If you are doing anything more than 500 nodes it's just impractical. If you know a faster way to do this please feel free to share with me. I suspect there's no need to run the full planarity test after every additonal edge.
 
@@ -194,7 +194,7 @@ One big issue in this implementation is that PMFG takes very long time to create
 
 Requires: [mOutliers.bas](Modules/mOutliers.bas)
 
-Upon working on a new data set, it could be worthwhile to scan the dataset for outliers, which can either be erroneous or represent some structural anomalies. For this example, we use a dataset from [Human Development Index](http://hdr.undp.org/en/composite/HDI), which measures 4 areas of developments for 188 countries: life expectancy, mean and expected years of schooling, and Gross National Income (GNI) per capita. The data as of 2015 is put into tabular format in [HDI_Data.csv](HDI_Data.csv). The data is again saved in a NxD array x(), where N=188 and D=4, it's then projected onto a 2D-plane of the first two principal components for visualization.
+Upon working on a new data set, it could be worthwhile to scan the dataset for outliers, which can either be erroneous or represent some structural anomalies. For this example, we use a dataset from [Human Development Index](http://hdr.undp.org/en/composite/HDI), which measures 4 areas of developments for 188 countries: life expectancy, mean and expected years of schooling, and Gross National Income (GNI) per capita. The data as of 2015 is put into tabular format in [HDI_Data.csv](HDI_Data.csv). The data is again saved in a NxD array *x()*, where N=188 and D=4, it's then projected onto a 2D-plane of the first two principal components for visualization.
 
 The "outlier-ness" of each data can be meaurserd by these 4 measures: Mahalanobis distance, local outlier factor, distance to the k-th nearest neighbor, and [influence](https://las.inf.ethz.ch/files/lucic16outliers.pdf)<sup>1</sup>. Syntax of each is given below in the same order:
 ```
@@ -203,6 +203,7 @@ x_LOF = mOutliers.LOF(x, 5)
 x_kNN = mOutliers.KthNeighborDist_kdtree(x, 5)
 x_influence = mOutliers.Influence_Iterate(x)
 ```
+
 ![Outlier1](Screenshots/Outlier1.jpg)
 
 The figure above shows the four different outlier scores using bubble size as visual guide. You can see that for all the four charts, Qatar consistently shows a very high outlier score. 
