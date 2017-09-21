@@ -3,7 +3,7 @@ Option Explicit
 
 '====================================================
 'This module contains commonly used functions like sorting,
-'matrix decompostion, random number generator etc. In most cases
+'matrix decompositions, random number generator etc. In most cases
 'arrays are assumed to be 1-based, unless otherwise specified.
 '=====================================================
 
@@ -491,7 +491,7 @@ Dim i As Long, j As Long, k As Long
 End Sub
 
 
-'return y() as the m-th to n-th elements of x()
+'return y(1:n-m+1) with the elements of x(m:n)
 Sub MidArray(x As Variant, m As Long, n As Long, y As Variant)
 Dim i As Long
     ReDim y(1 To n - m + 1)
@@ -501,16 +501,11 @@ Dim i As Long
 End Sub
 
 
-'Add tgt to the end of a 1D vector x(0 to n)
+'Append tgt to the end of a 1D vector x(0 to n)
 Sub Append_1D(x As Variant, tgt As Variant)
 Dim n As Long
     n = UBound(x) + 1
-    'If n > 1 Then       'x() is non-empty
-    '    ReDim Preserve x(1 To n)
-    'ElseIf n = 1 Then   'x() is an empty array of dimension x(0 to 0)
-    '    ReDim x(1 To n)
-    'End If
-    ReDim Preserve x(0 To n)
+    ReDim Preserve x(LBound(x) To n)
     x(n) = tgt
 End Sub
 
@@ -521,12 +516,12 @@ Dim j As Long, n As Long
     n = UBound(x)
     If i = 0 Then Debug.Print "Erase_1D: error: cannot remove 0-th element"
     If i = n Then
-        ReDim Preserve x(0 To n - 1)
+        ReDim Preserve x(LBound(x) To n - 1)
     ElseIf i < n Then
         For j = i To n - 1
             x(j) = x(j + 1)
         Next j
-        ReDim Preserve x(0 To n - 1)
+        ReDim Preserve x(LBound(x) To n - 1)
     End If
 End Sub
 
@@ -1807,10 +1802,44 @@ Dim i As Long, m As Long, n As Long
 End Sub
 
 
+'Divide multi-dimensional data x(1:N,1:D) into segments of length n_T, stored in jagged array xS
+'Input:  x(1:N, 1:D), N observations of of D-dimensional vector
+'        n_T, length of each segment
+'        t_start, starting point to create segments
+'        step_size, interval between starting points of consecutive segment, nT=step_size means no overlap
+'Output: xS(1:M), variant array, each element xS(i) is an array of size (1:n_T, 1:D)
+Sub Sequence2Segments(x() As Double, xS As Variant, n_T As Long, Optional t_start As Long = 1, Optional step_size As Long = 1)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long
+Dim n_raw As Long, n_dimension As Long
+Dim x_tmp() As Double
+    n_raw = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    m = 0
+    ReDim xS(1 To (n_raw - t_start - n_T + 1) / step_size + 1)
+    For n = t_start To n_raw Step step_size
+        If (n + n_T - 1) <= n_raw Then
+            ReDim x_tmp(1 To n_T, 1 To n_dimension)
+            For i = 1 To n_T
+                For j = 1 To n_dimension
+                    x_tmp(i, j) = x(n + i - 1, j)
+                Next j
+            Next i
+            m = m + 1
+            xS(m) = x_tmp
+        End If
+    Next n
+    ReDim Preserve xS(1 To m)
+    Erase x_tmp
+End Sub
+
+
 'Normalize mutli-dimensional data x() by a chosen scheme
 'Input: x(1 to n_raw,1 to dimension)
 'Original data can be recovered by x*x_scale+x_shift
-Sub Normalize_x(x() As Double, x_shift() As Double, x_scale() As Double, Optional stype As String = "AVGSD")
+'if isKnown=TRUE then x() will be transfromed with supplied x_shift()
+'and x_scale(), and stype is ignored.
+Sub Normalize_x(x() As Double, x_shift() As Double, x_scale() As Double, _
+        Optional stype As String = "AVGSD", Optional isKnown As Boolean = False)
 Dim i As Long, j As Long, k As Long, n As Long, m As Long
 Dim n_raw As Long, n_dimension As Long
 Dim tmp_vec() As Double, tmp_vec2() As Double
@@ -1819,97 +1848,103 @@ Dim tmp_min As Double, tmp_max As Double
 
 n_raw = UBound(x, 1)
 n_dimension = UBound(x, 2)
-ReDim x_shift(1 To n_dimension)
-ReDim x_scale(1 To n_dimension)
 
-If UCase(stype) = "AVGSD" Then
+If isKnown = False Then
 
-    For k = 1 To n_dimension
-        tmp_x = 0
-        tmp_y = 0
-        For i = 1 To n_raw
-            tmp_x = tmp_x + x(i, k)
-            tmp_y = tmp_y + x(i, k) ^ 2
-        Next i
-        tmp_x = tmp_x / n_raw
-        tmp_y = Sqr((tmp_y / n_raw - tmp_x ^ 2) * n_raw * 1# / (n_raw - 1))
-        x_shift(k) = tmp_x
-        x_scale(k) = tmp_y
-    Next k
-ElseIf UCase(stype) = "DEMEAN" Then
-
-    For k = 1 To n_dimension
-        tmp_x = 0
-        For i = 1 To n_raw
-            tmp_x = tmp_x + x(i, k)
-        Next i
-        x_shift(k) = tmp_x / n_raw
-        x_scale(k) = 1
-    Next k
-
-ElseIf UCase(stype) = "MINMAX" Then
-
-    For k = 1 To n_dimension
-        tmp_min = x(1, k)
-        tmp_max = x(1, k)
-        For i = 2 To n_raw
-            If x(i, k) > tmp_max Then tmp_max = x(i, k)
-            If x(i, k) < tmp_min Then tmp_min = x(i, k)
-        Next i
-        x_shift(k) = tmp_min
-        x_scale(k) = tmp_max - tmp_min
-    Next k
-
-ElseIf UCase(stype) = "MINMAXAVG" Then
-
-    For k = 1 To n_dimension
-        tmp_x = x(1, k)
-        tmp_min = x(1, k)
-        tmp_max = x(1, k)
-        For i = 2 To n_raw
-            tmp_x = tmp_x + x(i, k)
-            If x(i, k) > tmp_max Then tmp_max = x(i, k)
-            If x(i, k) < tmp_min Then tmp_min = x(i, k)
-        Next i
-        tmp_x = tmp_x / n_raw
-        x_shift(k) = tmp_x
-        x_scale(k) = tmp_max - tmp_min
-    Next k
-
-ElseIf UCase(stype) = "MEDRNG" Then
-
-    For k = 1 To n_dimension
-        Call get_vector(x, k, 2, tmp_vec)
-        tmp_vec2 = fQuartile(tmp_vec)
-        x_shift(k) = tmp_vec2(2)
-        x_scale(k) = tmp_vec2(3) - tmp_vec2(1)
-    Next k
-
-ElseIf UCase(stype) = "AVGSDEX" Then
-
-    For k = 1 To n_dimension
-        Call get_vector(x, k, 2, tmp_vec)
-        tmp_vec2 = fQuartile(tmp_vec)
-        tmp_med = tmp_vec2(2)
-        tmp_rng = 3 * (tmp_vec2(3) - tmp_vec2(1))
-        tmp_x = 0
-        tmp_y = 0
-        n = 0
-        For i = 1 To n_raw
-            If Abs(x(i, k) - tmp_med) < tmp_rng Then
-                n = n + 1
+    ReDim x_shift(1 To n_dimension)
+    ReDim x_scale(1 To n_dimension)
+    
+    If UCase(stype) = "AVGSD" Then
+    
+        For k = 1 To n_dimension
+            tmp_x = 0
+            tmp_y = 0
+            For i = 1 To n_raw
                 tmp_x = tmp_x + x(i, k)
                 tmp_y = tmp_y + x(i, k) ^ 2
-            End If
-        Next i
-        tmp_x = tmp_x / n
-        tmp_y = Sqr((tmp_y / n - tmp_x ^ 2) * n * 1# / (n - 1))
-        x_shift(k) = tmp_x
-        x_scale(k) = tmp_y
-    Next k
+            Next i
+            tmp_x = tmp_x / n_raw
+            tmp_y = Sqr((tmp_y / n_raw - tmp_x ^ 2) * n_raw * 1# / (n_raw - 1))
+            x_shift(k) = tmp_x
+            x_scale(k) = tmp_y
+        Next k
+        
+    ElseIf UCase(stype) = "DEMEAN" Then
+    
+        For k = 1 To n_dimension
+            tmp_x = 0
+            For i = 1 To n_raw
+                tmp_x = tmp_x + x(i, k)
+            Next i
+            x_shift(k) = tmp_x / n_raw
+            x_scale(k) = 1
+        Next k
+    
+    ElseIf UCase(stype) = "MINMAX" Then
+    
+        For k = 1 To n_dimension
+            tmp_min = x(1, k)
+            tmp_max = x(1, k)
+            For i = 2 To n_raw
+                If x(i, k) > tmp_max Then tmp_max = x(i, k)
+                If x(i, k) < tmp_min Then tmp_min = x(i, k)
+            Next i
+            x_shift(k) = tmp_min
+            x_scale(k) = tmp_max - tmp_min
+        Next k
+    
+    ElseIf UCase(stype) = "MINMAXAVG" Then
+    
+        For k = 1 To n_dimension
+            tmp_x = x(1, k)
+            tmp_min = x(1, k)
+            tmp_max = x(1, k)
+            For i = 2 To n_raw
+                tmp_x = tmp_x + x(i, k)
+                If x(i, k) > tmp_max Then tmp_max = x(i, k)
+                If x(i, k) < tmp_min Then tmp_min = x(i, k)
+            Next i
+            tmp_x = tmp_x / n_raw
+            x_shift(k) = tmp_x
+            x_scale(k) = tmp_max - tmp_min
+        Next k
+    
+    ElseIf UCase(stype) = "MEDRNG" Then
+    
+        For k = 1 To n_dimension
+            Call get_vector(x, k, 2, tmp_vec)
+            tmp_vec2 = fQuartile(tmp_vec)
+            x_shift(k) = tmp_vec2(2)
+            x_scale(k) = tmp_vec2(3) - tmp_vec2(1)
+        Next k
+    
+    ElseIf UCase(stype) = "AVGSDEX" Then
+    
+        For k = 1 To n_dimension
+            Call get_vector(x, k, 2, tmp_vec)
+            tmp_vec2 = fQuartile(tmp_vec)
+            tmp_med = tmp_vec2(2)
+            tmp_rng = 3 * (tmp_vec2(3) - tmp_vec2(1))
+            tmp_x = 0
+            tmp_y = 0
+            n = 0
+            For i = 1 To n_raw
+                If Abs(x(i, k) - tmp_med) < tmp_rng Then
+                    n = n + 1
+                    tmp_x = tmp_x + x(i, k)
+                    tmp_y = tmp_y + x(i, k) ^ 2
+                End If
+            Next i
+            tmp_x = tmp_x / n
+            tmp_y = Sqr((tmp_y / n - tmp_x ^ 2) * n * 1# / (n - 1))
+            x_shift(k) = tmp_x
+            x_scale(k) = tmp_y
+        Next k
+    
+    Else
+        Debug.Print "Normalize_x: " & stype & " not a valid option."
+    End If
 
-Else
-    Debug.Print "Normalize_x: " & stype & " not a valid option."
 End If
 
 For k = 1 To n_dimension
