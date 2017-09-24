@@ -2,15 +2,17 @@ Attribute VB_Name = "mLARS"
 Option Explicit
 'Requires: modMath
 
-'*******************************************
+
+
+'====================================================
 'Least Angle Regression (LARS)
-'*******************************************
+'====================================================
 'Main Reference: "Least Angle Regression", Efron (2003)
 'https://web.stanford.edu/~hastie/Papers/LARS/LeastAngle_2002.pdf
 'Implementation from http://www.ece.ubc.ca/~xiaohuic/code/LARS/lars.m
 'Reference below shows how the constraint can be expressed in max-norm form or Lagrange from
 'https://stats.stackexchange.com/questions/207484/lasso-regularisation-parameter-from-lars-algorithm
-'Input:     x() is a NxD predictor variables with zero mean and unit variance
+'Input:     x() is a NxD predictor variables with zero mean and uni length, i.e. sum(x^2)=1
 '           y() is a length N vector of response variable
 '           LASSO, TRUE if LASSO regression needs to be performed
 '           norm1, if left empty, LARS return the whole solution path same as beta()
@@ -177,11 +179,70 @@ Dim x_mean() As Double, x_scale() As Double, y_mean As Double
     If IsMissing(norm1) = False Then
         LARS = beta_t
     Else
-        LARS = beta
+'        LARS = beta
+        Call modMath.Filter_Array(beta, LARS, , UBound(beta, 2))
     End If
     
     Erase x_A, G_A, s_A, u_A, w_A, mu, mu_prev, gammatest, beta_tmp, beta_t, Ac
 End Function
+
+
+
+'=============================================
+'Elastic Net Regression
+'=============================================
+'Main Reference: "Regularization and variable selection via elastic net", Hui Zou (2004)
+'https://web.stanford.edu/~hastie/Papers/B67.2%20(2005)%20301-320%20Zou%20&%20Hastie.pdf
+'Input:     x() is a NxD predictor variables with zero mean and unit length (i.e. sum(x^2)=1)
+'           y() is a length N vector of response variable
+'           lambda2, L2 regularization term
+'Output:    beta(), solution path of dimension (1 to n_dimension, 1 to number of steps)
+'           A(),    order of which each dimension is added to the model
+Function ENET(x() As Double, y() As Double, beta() As Double, A() As Long, lambda2 As Double, _
+            Optional norm1 As Variant, Optional norm_rel As Long = 1) As Double()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long
+Dim n_raw As Long, n_dimension As Long
+Dim lambda1 As Double, tmp_x As Double, t_tgt As Double
+Dim x2() As Double, y2() As Double, x_mean() As Double, x_scale() As Double, y_mean As Double
+Dim mse() As Double, tmp_vec() As Double
+Dim Gram() As Double
+    n_raw = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    
+    'Find norm-1 of ridge regression solution
+    If IsMissing(norm1) = False Then
+        If norm_rel = 1 Then
+            Dim u() As Double, d() As Double, v() As Double
+            Call modMath.Matrix_SVD(x, u, d, v)
+            For i = 1 To UBound(d)
+                d(i) = d(i) / (d(i) ^ 2 + lambda2)
+            Next i
+            d = modMath.mDiag(d)
+            tmp_vec = modMath.M_Dot(modMath.M_Dot(v, modMath.M_Dot(d, u, 0, 1)), y)
+            t_tgt = beta_norm(tmp_vec) * norm1
+'            t_tgt = t_tgt * (1 + lambda2)
+            Erase u, d, v, tmp_vec
+        Else
+            t_tgt = norm1
+        End If
+    End If
+
+    Gram = modMath.M_Dot(x, x, 1, 0)
+    For i = 1 To n_dimension
+        Gram(i, i) = Gram(i, i) + lambda2
+    Next i
+
+    If IsMissing(norm1) = False Then
+        tmp_vec = LARS_EN(x, y, beta, A, Gram, lambda2, t_tgt)
+    Else
+        tmp_vec = LARS_EN(x, y, beta, A, Gram, lambda2)
+    End If
+    beta = modMath.M_scalar_dot(beta, (1 + lambda2))
+    tmp_vec = modMath.M_scalar_dot(tmp_vec, (1 + lambda2))
+    ENET = tmp_vec
+    Erase tmp_vec, Gram
+End Function
+
 
 
 'Elastic net with LARS
@@ -218,9 +279,9 @@ Dim Ac() As Long
         Ac(i) = i
     Next i
     
-    If lambda2 > 0 And IsMissing(norm1) = False Then
-        If norm1 > 0 Then norm1 = norm1 / (1 + lambda2)
-    End If
+'    If lambda2 > 0 And IsMissing(norm1) = False Then
+'        If norm1 > 0 Then norm1 = norm1 / (1 + lambda2)
+'    End If
     
     lassoCond = 0
     stopCond = 0
@@ -357,126 +418,62 @@ Dim Ac() As Long
     If IsMissing(norm1) = False Then
         LARS_EN = beta_t
     Else
-        LARS_EN = beta
+        'LARS_EN = beta
+        Call modMath.Filter_Array(beta, LARS_EN, , UBound(beta, 2))
     End If
 
 End Function
 
-'*******************************************
-'Elastic Net Regression
-'*******************************************
-'Main Reference: "Regularization and variable selection via elastic net", Hui Zou (2004)
-'https://web.stanford.edu/~hastie/Papers/B67.2%20(2005)%20301-320%20Zou%20&%20Hastie.pdf
-'Input:     x() is a NxD predictor variables with zero mean and unit length (i.e. sum(x^2)=1)
-'           y() is a length N vector of response variable
-'           lambda2, L2 regularization term
-'Output:    beta(), solution path of dimension (1 to n_dimension, 1 to number of steps)
-'           A(),    order of which each dimension is added to the model
-Function ENET(x() As Double, y() As Double, beta() As Double, A() As Long, lambda2 As Double, _
-            Optional norm1 As Variant, Optional norm_rel As Long = 1) As Double()
-Dim i As Long, j As Long, k As Long, m As Long, n As Long
-Dim n_raw As Long, n_dimension As Long
-Dim lambda1 As Double, tmp_x As Double, t_tgt As Double
-Dim x2() As Double, y2() As Double, x_mean() As Double, x_scale() As Double, y_mean As Double
-Dim mse() As Double, tmp_vec() As Double
-Dim Gram() As Double
-    n_raw = UBound(x, 1)
-    n_dimension = UBound(x, 2)
-    
-'    ReDim Preserve y(1 To n_raw + n_dimension)
-'    ReDim x2(1 To n_raw + n_dimension, 1 To n_dimension)
-'    For j = 1 To n_dimension
-'        For i = 1 To n_raw
-'            x2(i, j) = x(i, j) / Sqr((1 + lambda2))
-'        Next i
-'        x2(n_raw + j, j) = Sqr(lambda2) / Sqr((1 + lambda2))
-'    Next j
-'    tmp_vec = LARS(x2, y, beta, A, True)
-'    beta = modMath.M_scalar_dot(beta, Sqr((1 + lambda2)))
-'    tmp_vec = modMath.M_scalar_dot(tmp_vec, Sqr((1 + lambda2)))
-'    ENET = tmp_vec
-'    ReDim Preserve y(1 To n_raw)
-'    Erase x2, tmp_vec
-    
-    'Find norm-1 of ridge regression solution
-    If IsMissing(norm1) = False Then
-        If norm_rel = 1 Then
-            Dim u() As Double, d() As Double, v() As Double
-            Call modMath.Matrix_SVD(x, u, d, v)
-            For i = 1 To UBound(d)
-                d(i) = d(i) / (d(i) ^ 2 + lambda2)
-            Next i
-            d = modMath.mDiag(d)
-            tmp_vec = modMath.M_Dot(modMath.M_Dot(v, modMath.M_Dot(d, u, 0, 1)), y)
-            t_tgt = beta_norm(tmp_vec) * norm1
-            t_tgt = t_tgt * (1 + lambda2)
-            Erase u, d, v, tmp_vec
-        Else
-            t_tgt = norm1
-        End If
-    End If
 
-    Gram = modMath.M_Dot(x, x, 1, 0)
-    For i = 1 To n_dimension
-        Gram(i, i) = Gram(i, i) + lambda2
-    Next i
-
-    If IsMissing(norm1) = False Then
-        tmp_vec = LARS_EN(x, y, beta, A, Gram, lambda2, t_tgt)
-    Else
-        tmp_vec = LARS_EN(x, y, beta, A, Gram, lambda2)
-    End If
-    beta = modMath.M_scalar_dot(beta, (1 + lambda2))
-    tmp_vec = modMath.M_scalar_dot(tmp_vec, (1 + lambda2))
-
-    ENET = tmp_vec
-    Erase tmp_vec, Gram
-End Function
 
 
 'Perform LASSO with K-fold cross validation to find the optimal value of s,
 'which is the norm of optimal beta relative to OLS solution
-Function LASSO_CV(x() As Double, y() As Double, beta() As Double, A() As Long, _
-        s_optimal As Double, Optional K_Fold As Long = 10)
+Function LASSO_CV(x() As Double, y() As Double, beta() As Double, A() As Long, s_optimal As Double, _
+        Optional K_Fold As Long = 10, Optional n_iterate As Long = 1, Optional CV_Curve As Variant) As Double()
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
-Dim n_raw As Long, n_dimension As Long, n_test As Long
+Dim n_raw As Long, n_dimension As Long, n_test As Long, iterate As Long
 Dim n_s As Long, iCV As Long
-Dim tmp_x As Double, ss As Double
-Dim tmp_vec() As Double
-Dim CV_err() As Double
+Dim tmp_x As Double
+Dim CV_err() As Double, s_test() As Double, s() As Double, beta_tmp() As Double
 Dim x_test() As Double, x_train() As Double, y_test() As Double, y_train() As Double, y_est() As Double
 Dim x_mean() As Double, x_scale() As Double, y_mean As Double
-Dim s_test() As Double
-Dim beta_tmp() As Double, s() As Double
-Dim iShuffle() As Long, iTest() As Long, iTrain() As Long
+Dim iShuffle() As Long
     n_raw = UBound(x, 1)
     n_dimension = UBound(x, 2)
-    n_s = 100                           'number of values of s to test, s in (0,1]
-    n_test = n_raw \ K_Fold             'size of test set
-    ReDim CV_err(1 To n_s)
+    n_s = 100                        'number of values of s to test, s in (0,1]
+    n_test = n_raw \ K_Fold          'size of test set
     ReDim s_test(1 To n_s)
     For i = 1 To n_s
         s_test(i) = i * 0.01
     Next i
     
-    'Shuffle original data set
-    iShuffle = modMath.index_array(1, n_raw)
-    Call modMath.Shuffle(iShuffle)
+    ReDim CV_err(1 To n_s)
+    For iterate = 1 To n_iterate
+        
+        DoEvents
+        Application.StatusBar = "LASSO_CV: iterate: " & iterate & "/" & n_iterate
+        
+        'Shuffle original data set
+        iShuffle = modMath.index_array(1, n_raw)
+        Call modMath.Shuffle(iShuffle)
+        
+        For iCV = 1 To K_Fold
+            'Split into training set and test set
+            Call Split_Data(x, y, iShuffle, iCV, n_test, x_test, y_test, x_train, y_train, x_mean, x_scale, y_mean)
+            
+            beta_tmp = LARS(x_train, y_train, beta, A, True) 'Generate LASSO path
+            
+            Call calc_s(beta, s)    'norm of each beta relative to OLS solution
+
+            For i = 1 To n_s
+                Call Intrapolate_beta(s, beta, s_test(i), beta_tmp)    'Intrapolate beta
+                Call Predict(x_test, beta_tmp, y_est, y_test, tmp_x)   'Find prediction error on test set
+                CV_err(i) = CV_err(i) + tmp_x / (K_Fold * n_iterate)   'Accumulate error
+            Next i
+        Next iCV
     
-    For iCV = 1 To K_Fold
-        'Split into training set and test set
-        Call Split_Data(x, y, iShuffle, iCV, n_test, x_test, y_test, x_train, y_train, x_mean, x_scale, y_mean)
-        
-        beta_tmp = LARS(x_train, y_train, beta, A, True) 'Generate LASSO path
-        
-        Call calc_s(beta, s)    'norm of each beta relative to OLS solution
-        
-        For i = 1 To n_s
-            Call Intrapolate_beta(s, beta, s_test(i), beta_tmp)    'Intrapolate beta
-            Call Predict(x_test, beta_tmp, y_est, y_test, tmp_x)   'Find prediction error on test set
-            CV_err(i) = CV_err(i) + tmp_x / K_Fold                 'Accumulate error
-        Next i
-    Next iCV
+    Next iterate
     
     tmp_x = Exp(70)
     For i = 1 To n_s
@@ -485,37 +482,34 @@ Dim iShuffle() As Long, iTest() As Long, iTrain() As Long
             s_optimal = s_test(i)
         End If
     Next i
-
+    
     beta_tmp = LARS(x, y, beta, A, True, s_optimal)
     LASSO_CV = beta_tmp
+    If IsMissing(CV_Curve) = False Then CV_Curve = CV_err
     Erase x_train, x_test, y_train, y_test, y_est, x_mean, x_scale, CV_err
     Application.StatusBar = False
 End Function
 
 
-Function ENET_CV(x() As Double, y() As Double, beta() As Double, A() As Long, _
-        lambda_optimal As Double, s_optimal As Double, Optional K_Fold As Long = 10) As Double()
+Function ENET_CV(x() As Double, y() As Double, beta() As Double, A() As Long, lambda_optimal As Double, s_optimal As Double, _
+        Optional K_Fold As Long = 10, Optional n_iterate As Long = 1, Optional CV_Curve As Variant) As Double()
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
-Dim n_raw As Long, n_dimension As Long, n_test As Long
+Dim n_raw As Long, n_dimension As Long, n_test As Long, iterate As Long
 Dim n_s As Long, n_lambda As Long, iLambda As Long, iCV As Long
-Dim tmp_x As Double, ss As Double
-Dim tmp_vec() As Double
-Dim CV_err() As Double
+Dim tmp_x As Double, tmp_y As Double
+Dim tmp_vec() As Double, lambda2 As Double
+Dim CV_err() As Double, lamba_test() As Double, s_test() As Double
 Dim x_test() As Double, x_train() As Double, y_test() As Double, y_train() As Double, y_est() As Double
 Dim x_mean() As Double, x_scale() As Double, y_mean As Double
-Dim lamba_test() As Double, s_test() As Double, lambda2 As Double
 Dim beta_tmp() As Double, s() As Double
-Dim iShuffle() As Long, iTest() As Long, iTrain() As Long
+Dim iShuffle() As Long
     n_raw = UBound(x, 1)
     n_dimension = UBound(x, 2)
     n_lambda = 7
     n_s = 100
     n_test = n_raw \ K_Fold
-    iShuffle = modMath.index_array(1, n_raw)
-    Call modMath.Shuffle(iShuffle)
     ReDim s_test(1 To n_s)
     ReDim lambda_test(1 To n_lambda)
-    ReDim CV_err(1 To n_lambda, 1 To n_s)
     For i = 1 To n_s
         s_test(i) = i * 0.01
     Next i
@@ -523,25 +517,36 @@ Dim iShuffle() As Long, iTest() As Long, iTrain() As Long
         lambda_test(i) = 10 ^ (i - 4)
     Next i
     
-    For iLambda = 1 To n_lambda
-        DoEvents
-        Application.StatusBar = "ENET_CV: " & iLambda & "/" & n_lambda
-        lambda2 = lambda_test(iLambda)
-        For iCV = 1 To K_Fold
-            'Split data into training and test set
-            Call Split_Data(x, y, iShuffle, iCV, n_test, x_test, y_test, x_train, y_train, x_mean, x_scale, y_mean)
+    ReDim CV_err(1 To n_lambda, 1 To n_s)
+    For iterate = 1 To n_iterate
+    
+        iShuffle = modMath.index_array(1, n_raw)
+        Call modMath.Shuffle(iShuffle)
+        
+        For iLambda = 1 To n_lambda
+        
+            DoEvents
+            Application.StatusBar = "ENET_CV: " & iLambda & "/" & n_lambda & ", iterate (" & iterate & "/" & n_iterate & ")"
             
-            beta_tmp = ENET(x_train, y_train, beta, A, lambda2) 'Run elastic net on training set
-            
-            Call calc_s(beta, s) 'norm of each solution rel. to full ridge solution
-
-            For i = 1 To n_s
-                Call Intrapolate_beta(s, beta, s_test(i), beta_tmp)
-                Call Predict(x_test, beta_tmp, y_est, y_test, tmp_x)
-                CV_err(iLambda, i) = CV_err(iLambda, i) + tmp_x / K_Fold
-            Next i
-        Next iCV
-    Next iLambda
+            lambda2 = lambda_test(iLambda)
+            For iCV = 1 To K_Fold
+                'Split data into training and test set
+                Call Split_Data(x, y, iShuffle, iCV, n_test, x_test, y_test, x_train, y_train, x_mean, x_scale, y_mean)
+                
+                beta_tmp = ENET(x_train, y_train, beta, A, lambda2) 'Run elastic net on training set
+                
+                Call calc_s(beta, s) 'norm of each solution rel. to full ridge solution
+    
+                For i = 1 To n_s
+                    Call Intrapolate_beta(s, beta, s_test(i), beta_tmp)
+                    Call Predict(x_test, beta_tmp, y_est, y_test, tmp_x)
+                    CV_err(iLambda, i) = CV_err(iLambda, i) + tmp_x / (K_Fold * n_iterate)
+                Next i
+            Next iCV
+        Next iLambda
+    
+    Next iterate
+    
     
     tmp_x = Exp(70)
     For i = 1 To n_lambda
@@ -556,7 +561,8 @@ Dim iShuffle() As Long, iTest() As Long, iTrain() As Long
     
     beta_tmp = ENET(x, y, beta, A, lambda_optimal, s_optimal)
     ENET_CV = beta_tmp
-    Erase x_train, x_test, y_train, y_test, x_mean, x_scale
+    If IsMissing(CV_Curve) = False Then CV_Curve = CV_err
+    Erase x_train, x_test, y_train, y_test, x_mean, x_scale, CV_err
     Application.StatusBar = False
 End Function
 
@@ -599,9 +605,10 @@ Dim i As Long, j As Long, n As Long, n_dimension As Long
         For i = 1 To n
             sse = sse + (y_est(i) - y_tgt(i)) ^ 2
         Next i
-        'mse = mse / n
+        sse = sse / n
     End If
 End Sub
+
 
 'Append tgt to end of vector x()
 Private Sub Append_1D(x As Variant, tgt As Variant)
@@ -665,11 +672,6 @@ Private Function min2(x As Variant, y As Variant) As Variant
     min2 = x
     If y < x Then min2 = y
 End Function
-
-
-
-
-
 
 
 '1-norm of a vector
@@ -755,6 +757,7 @@ Dim iTest() As Long, iTrain() As Long
     Call Normalize_y(y_train, y_mean)
     Call Normalize_x(x_test, x_mean, x_scale, True)
     Call Normalize_y(y_test, y_mean, True)
+    Erase iTest, iTrain
 End Sub
 
 Private Sub calc_s(beta() As Double, s() As Double)

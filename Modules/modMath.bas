@@ -359,64 +359,58 @@ End Sub
 'Percentile Functions
 '========================================
 
-Function fmedian(x As Variant) As Double
-    Dim n As Long, k As Long, y As Variant, iArr() As Long
+Function fmedian(ByVal x As Variant) As Double
+    Dim n As Long, k As Long
     n = UBound(x, 1)
-    y = x
-    Call Sort_Quick(y, 1, n)
+    Call Sort_Quick(x, 1, n)
     If n Mod 2 = 0 Then
-        fmedian = (y(n / 2) + y(n / 2 + 1)) / 2
+        fmedian = (x(n / 2) + x(n / 2 + 1)) / 2
     Else
-        fmedian = y((n + 1) / 2)
+        fmedian = x((n + 1) / 2)
     End If
-    Erase y
 End Function
 
 
 'Intput: vector x(1 to N)
 'Output: vector PercentileScore(1 to N)
-Function PercentileScore(x As Variant) As Double()
+Function PercentileScore(ByVal x As Variant) As Double()
 Dim i As Long, j As Long, k As Long, n As Long
 Dim iArr() As Long
-Dim y As Variant
 Dim p() As Double
     n = UBound(x)
-    y = x
-    Call Sort_Quick_A(y, 1, n, iArr, 1)
+    Call Sort_Quick_A(x, 1, n, iArr, 1)
     ReDim p(1 To n)
     p(iArr(1)) = 0
     k = 0
     For i = 2 To n
         j = iArr(i)
-        If y(i) > y(i - 1) Then k = i - 1
+        If x(i) > x(i - 1) Then k = i - 1
         p(j) = k * 1# / (n - 1)
     Next i
     PercentileScore = p
-    Erase y, p, iArr
+    Erase p, iArr
 End Function
 
 
 'Intput: vector x(1 to N)
 'Output: vector fQuartile(0 to 4)
-Function fQuartile(x As Variant) As Double()
+Function fQuartile(ByVal x As Variant) As Double()
 Dim i As Long, j As Long, k As Long, n As Long
 Dim tmp_y As Double
 Dim iArr() As Long
-Dim y As Variant
 Dim p() As Double
     n = UBound(x)
-    y = x
-    Call Sort_Quick_A(y, 1, n, iArr, 1)
+    Call Sort_Quick_A(x, 1, n, iArr, 1)
     ReDim p(0 To 4)
-    p(0) = y(1)
-    p(4) = y(n)
+    p(0) = x(1)
+    p(4) = x(n)
     For k = 1 To 3
         tmp_y = (n - 1) * k * 0.25
         i = Int(tmp_y)
-        p(k) = y(i + 1) + (y(i + 2) - y(i + 1)) * (tmp_y - i)
+        p(k) = x(i + 1) + (x(i + 2) - x(i + 1)) * (tmp_y - i)
     Next k
     fQuartile = p
-    Erase y, p, iArr
+    Erase p, iArr
 End Function
 
 
@@ -430,7 +424,7 @@ End Function
 '       idx1, index positions of the first dimension to return
 '       idx2, index positions of the second dimension to return
 'Output: B()
-Sub Filter_Array(A As Variant, B As Variant, Optional idx1 As Variant, Optional idx2 As Variant)
+Sub Filter_Array(ByVal A As Variant, B As Variant, Optional idx1 As Variant, Optional idx2 As Variant)
 Dim i As Long, j As Long, k As Long
     k = getDimension(A)
     If k = 1 Then
@@ -1790,8 +1784,8 @@ End Function
 'Data preparation
 '======================
 
-'Promote vector x() into a matrix by adding an empty dimension
-Sub Promote_Vec(x As Variant, x2 As Variant)
+'Promote vector x() into a matrix x2() by adding an empty dimension
+Sub Promote_Vec(ByVal x As Variant, x2 As Variant)
 Dim i As Long, m As Long, n As Long
     m = LBound(x, 1)
     n = UBound(x, 1)
