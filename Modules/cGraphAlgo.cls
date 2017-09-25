@@ -29,61 +29,65 @@ Private pnode_degree() As Long  'Nx1 array storing degree of each node
 Private pnode_degree_wgt() As Double    'Nx1 array storing degree (weighted) of each node
 Private pnode_closeness() As Double     'Nx1 arary storing closeness of each node
 Private pnode_eigen() As Double 'Nx1 array storing eigen vector centrality of each node
+Private pnode_Katz() As Double  'Nx1 array storing katz centrality of each node
 Private pnode_next() As Long    'Nx1 mapping of current set of nodes to nodes in a coarsened graph
 
 
 Public Property Get Size() As Long
-Size = pSize
+    Size = pSize
 End Property
 
 Public Property Get n_edge() As Long
-n_edge = pn_edge
+    n_edge = pn_edge
 End Property
 
 Public Property Get EdgeList() As Long()
-EdgeList = pEdgeList
+    EdgeList = pEdgeList
 End Property
 
 Public Property Get EdgeDist() As Double()
-EdgeDist = pEdgeDist
+    EdgeDist = pEdgeDist
 End Property
 
 Public Property Get node_pos() As Double()
-node_pos = pnode_pos
+    node_pos = pnode_pos
 End Property
 
 Public Property Let node_pos(x() As Double)
-pnode_pos = x
+    pnode_pos = x
 End Property
 
 Public Property Get node_degree() As Long()
-node_degree = pnode_degree
+    node_degree = pnode_degree
 End Property
 
 Public Property Get node_degree_wgt() As Double()
-node_degree_wgt = pnode_degree_wgt
+    node_degree_wgt = pnode_degree_wgt
 End Property
 
 Public Property Get node_idx() As Long()
-node_idx = pnode_idx
+    node_idx = pnode_idx
 End Property
 
 Public Property Get node_next() As Long()
-node_next = pnode_next
+    node_next = pnode_next
 End Property
 
 Public Property Let node_next(x() As Long)
-pnode_next = x
+    pnode_next = x
 End Property
 
 Public Property Get node_closeness() As Double()
-node_closeness = pnode_closeness
+    node_closeness = pnode_closeness
 End Property
 
 Public Property Get node_eigen() As Double()
-node_eigen = pnode_eigen
+    node_eigen = pnode_eigen
 End Property
 
+Public Property Get node_Katz() As Double()
+    node_Katz = pnode_Katz
+End Property
 
 '=== Build Minimum Spanning Tree from a pairwise distance matrix
 'Input: Symmetric Distance(N x N) matrix
@@ -181,26 +185,28 @@ End Sub
 
 '=== Release memory
 Sub Reset()
-pSize = 0
-pn_edge = 0
-Erase pEdgeList, pEdgeDist, pnode_pos, pnode_degree, pnode_closeness, pnode_eigen, pnode_idx, pnode_next
+    pSize = 0
+    pn_edge = 0
+    Erase pEdgeList, pEdgeDist, pnode_pos, pnode_idx, pnode_next
+    Erase pnode_Katz, pnode_eigen, pnode_degree, pnode_closeness
 End Sub
 
 
 '=== Create a duplicate of input graph g
 Sub Copy(g As cGraphAlgo)
-With g
-    pSize = .Size
-    pn_edge = .n_edge
-    pEdgeList = .EdgeList
-    pEdgeDist = .EdgeDist
-    pnode_pos = .node_pos
-    pnode_idx = .node_idx
-    pnode_next = .node_next
-    pnode_degree = .node_degree
-    pnode_closeness = .node_closeness
-    pnode_eigen = .node_eigen
-End With
+    With g
+        pSize = .Size
+        pn_edge = .n_edge
+        pEdgeList = .EdgeList
+        pEdgeDist = .EdgeDist
+        pnode_pos = .node_pos
+        pnode_idx = .node_idx
+        pnode_next = .node_next
+        pnode_degree = .node_degree
+        pnode_closeness = .node_closeness
+        pnode_eigen = .node_eigen
+        pnode_Katz = .node_Katz
+    End With
 End Sub
 
 
@@ -208,19 +214,19 @@ End Sub
 Function Print_Edges()
 Dim i As Long, j As Long, k As Long, n As Long
 Dim vArr As Variant
-ReDim vArr(1 To pn_edge * 3, 1 To 2)
-k = 1
-For n = 1 To pn_edge
-    i = pEdgeList(n, 1)
-    j = pEdgeList(n, 2)
-    vArr(k, 1) = pnode_pos(i, 1)
-    vArr(k, 2) = pnode_pos(i, 2)
-    vArr(k + 1, 1) = pnode_pos(j, 1)
-    vArr(k + 1, 2) = pnode_pos(j, 2)
-    k = k + 3
-Next n
-Print_Edges = vArr
-Erase vArr
+    ReDim vArr(1 To pn_edge * 3, 1 To 2)
+    k = 1
+    For n = 1 To pn_edge
+        i = pEdgeList(n, 1)
+        j = pEdgeList(n, 2)
+        vArr(k, 1) = pnode_pos(i, 1)
+        vArr(k, 2) = pnode_pos(i, 2)
+        vArr(k + 1, 1) = pnode_pos(j, 1)
+        vArr(k + 1, 2) = pnode_pos(j, 2)
+        k = k + 3
+    Next n
+    Print_Edges = vArr
+    Erase vArr
 End Function
 
 
@@ -664,35 +670,11 @@ Application.StatusBar = False
 End Sub
 
 
-'Sub Find_Eigen()
-'Dim i As Long, j As Long, k As Long, iterate As Long
-'Dim A() As Double, eigen_val() As Double, eigen_vec() As Double
-'ReDim A(1 To psize, 1 To psize)
-'For k = 1 To pn_edge
-'    i = pEdgeList(k, 1)
-'    j = pEdgeList(k, 2)
-'    A(i, j) = 1
-'    A(j, i) = 1
-'Next k
-'Call mEigen.Eigen_QR(A, eigen_val, eigen_vec)
-'ReDim pnode_eigen(1 To psize)
-'Debug.Print "A"
-'For i = 1 To psize
-'    pnode_eigen(i) = eigen_vec(1, i)
-'Next i
-'Debug.Print "B"
-'For i = 1 To 100
-'    Debug.Print "Eigen value, " & i & ", " & eigen_val(i)
-'Next i
-'End Sub
-
-
 Sub Find_Eigen(Optional iter_max As Long = 10000, Optional tolerance As Double = 0.0000000001)
 Dim i As Long, j As Long, k As Long, iterate As Long
 Dim x() As Double, tmp_x As Double, eigen_val As Double
 Dim tmpBool As Boolean
 
-Randomize
 Call Me.Find_degree
 eigen_val = 0
 ReDim pnode_eigen(1 To pSize)
@@ -740,7 +722,6 @@ Dim x() As Double, tmp_x As Double, tmp_y As Double, eigen_val As Double
         eigen_val = 0
         tmp_x = 0
         For i = 1 To pSize
-            x(i) = x(i) + 1 'Find eigenvector of (A+I) instead of A
             eigen_val = eigen_val + x(i) ^ 2
             tmp_x = tmp_x + x(i) * vec_guess(i)
         Next i
@@ -760,6 +741,51 @@ Dim x() As Double, tmp_x As Double, tmp_y As Double, eigen_val As Double
         PowerIterate = True
     End If
     ConvChk = tmp_x
+    Erase x
+End Function
+
+Function Find_Katz(Optional alpha As Double = 1, Optional beta As Double = 1, _
+        Optional iter_max As Long = 10000, Optional tol As Double = 0.0000000001) As Boolean
+Dim i As Long, j As Long, k As Long, iterate As Long
+Dim x() As Double, tmp_x As Double, tmp_y As Double, norm As Double
+
+    Call Me.Find_degree
+    norm = 0
+    ReDim pnode_Katz(1 To pSize)
+    For i = 1 To pSize
+        pnode_Katz(i) = pnode_degree(i)
+        norm = norm + pnode_Katz(i) ^ 2
+    Next i
+    norm = Sqr(norm)
+    For i = 1 To pSize
+        pnode_Katz(i) = pnode_Katz(i) / norm
+    Next i
+
+    For iterate = 1 To iter_max
+        ReDim x(1 To pSize)
+        For k = 1 To pn_edge
+            i = pEdgeList(k, 1)
+            j = pEdgeList(k, 2)
+            x(i) = x(i) + pnode_Katz(j)
+            x(j) = x(j) + pnode_Katz(i)
+        Next k
+        norm = 0
+        tmp_x = 0
+        For i = 1 To pSize
+            x(i) = alpha * x(i) + beta
+            norm = norm + x(i) ^ 2
+            tmp_x = tmp_x + x(i) * pnode_Katz(i)
+        Next i
+        norm = Sgn(tmp_x) * Sqr(norm)
+        For i = 1 To pSize
+            x(i) = x(i) / norm
+        Next i
+        tmp_x = tmp_x / norm
+        tmp_x = Abs(tmp_x - 1)
+        pnode_Katz = x
+        If tmp_x < tol Then Exit For
+    Next iterate
+    If iterate >= iter_max Then Debug.Print "Find_Katz: no convergence."
     Erase x
 End Function
 
