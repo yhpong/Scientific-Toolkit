@@ -730,7 +730,6 @@ Private Function PowerIterate(vec_guess() As Double, ConvChk As Double, Optional
 Dim i As Long, j As Long, k As Long, iterate As Long
 Dim x() As Double, tmp_x As Double, tmp_y As Double, eigen_val As Double
     For iterate = 1 To iter_max
-    
         ReDim x(1 To pSize)
         For k = 1 To pn_edge
             i = pEdgeList(k, 1)
@@ -738,10 +737,10 @@ Dim x() As Double, tmp_x As Double, tmp_y As Double, eigen_val As Double
             x(i) = x(i) + vec_guess(j)
             x(j) = x(j) + vec_guess(i)
         Next k
-    
         eigen_val = 0
         tmp_x = 0
         For i = 1 To pSize
+            x(i) = x(i) + 1 'Find eigenvector of (A+I) instead of A
             eigen_val = eigen_val + x(i) ^ 2
             tmp_x = tmp_x + x(i) * vec_guess(i)
         Next i
@@ -750,10 +749,6 @@ Dim x() As Double, tmp_x As Double, tmp_y As Double, eigen_val As Double
             x(i) = x(i) / eigen_val
         Next i
         tmp_x = tmp_x / eigen_val
-'        tmp_x = 0
-'        For i = 1 To pSize
-'            tmp_x = tmp_x + vec_guess(i) * x(i)
-'        Next i
         tmp_x = Abs(tmp_x - 1)
         vec_guess = x
         If tmp_x < tolerance Then Exit For
