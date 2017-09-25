@@ -225,6 +225,7 @@ node_degree() As Long()       'degree of each node, vector of length (1:Size)
 node_degree_wgt() As Double() 'weighted degree of each node, vector of length (1:Size)
 node_closeness() As Double()  'closeness of each node, vector of length (1:Size)
 node_eigen() As Double()      'eigenvector centrality of each node, vector of length (1:Size)
+node_Katz() As Double()      'Katz centrality of each node, vector of length (1:Size)
 ```
 
 Read-Write properties
@@ -287,7 +288,13 @@ Find_Eigen(Optional iter_max As Long = 10000, Optional tolerance As Double = 0.0
 
 **Input:** iter_max and tolerance are the maximium iteration of tolerance in using power iteration.
 
+```Ruby
+Find_Katz(Optional alpha As Double = 1, Optional beta As Double = 1, _
+        Optional iter_max As Long = 10000, Optional tol As Double = 0.0000000001)
+```
+**Desc:** Calculate Katz-centrality of each node which can then be accessed by 'node_Katz'. Using power iteration.
 
+**Input:** Find c that satisfies c=alpha A c+beta, iter_max and tolerance are the maximium iteration of tolerance in using power iteration. c is normalized to ||c||=1
 
 ---
 ### mOutliers.bas
