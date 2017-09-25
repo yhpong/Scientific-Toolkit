@@ -744,11 +744,10 @@ Dim x() As Double, tmp_x As Double, tmp_y As Double, eigen_val As Double
     Erase x
 End Function
 
-Function Find_Katz(Optional alpha As Double = 1, Optional beta As Double = 1, _
-        Optional iter_max As Long = 10000, Optional tol As Double = 0.0000000001) As Boolean
+Sub Find_Katz(Optional alpha As Double = 1, Optional beta As Double = 1, _
+        Optional iter_max As Long = 10000, Optional tol As Double = 0.0000000001)
 Dim i As Long, j As Long, k As Long, iterate As Long
 Dim x() As Double, tmp_x As Double, tmp_y As Double, norm As Double
-
     Call Me.Find_degree
     norm = 0
     ReDim pnode_Katz(1 To pSize)
@@ -787,7 +786,7 @@ Dim x() As Double, tmp_x As Double, tmp_y As Double, norm As Double
     Next iterate
     If iterate >= iter_max Then Debug.Print "Find_Katz: no convergence."
     Erase x
-End Function
+End Sub
 
 
 Private Sub mTranspose(A As Variant, B As Variant)
