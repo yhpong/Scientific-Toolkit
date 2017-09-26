@@ -744,22 +744,18 @@ Dim x() As Double, tmp_x As Double, tmp_y As Double, eigen_val As Double
     Erase x
 End Function
 
-Sub Find_Katz(Optional alpha As Double = 1, Optional beta As Double = 1, _
+
+'=== Find Katz Centrality x() s.t.
+'=== $$x_i=\alpha \sum_j A_{ij} x_j + \beta$$
+Sub Find_Katz(Optional alpha As Double = 0.1, Optional beta As Double = 1, _
         Optional iter_max As Long = 10000, Optional tol As Double = 0.0000000001)
 Dim i As Long, j As Long, k As Long, iterate As Long
 Dim x() As Double, tmp_x As Double, tmp_y As Double, norm As Double
     Call Me.Find_degree
-    norm = 0
     ReDim pnode_Katz(1 To pSize)
     For i = 1 To pSize
         pnode_Katz(i) = pnode_degree(i)
-        norm = norm + pnode_Katz(i) ^ 2
     Next i
-    norm = Sqr(norm)
-    For i = 1 To pSize
-        pnode_Katz(i) = pnode_Katz(i) / norm
-    Next i
-
     For iterate = 1 To iter_max
         ReDim x(1 To pSize)
         For k = 1 To pn_edge
@@ -768,19 +764,11 @@ Dim x() As Double, tmp_x As Double, tmp_y As Double, norm As Double
             x(i) = x(i) + pnode_Katz(j)
             x(j) = x(j) + pnode_Katz(i)
         Next k
-        norm = 0
         tmp_x = 0
         For i = 1 To pSize
             x(i) = alpha * x(i) + beta
-            norm = norm + x(i) ^ 2
-            tmp_x = tmp_x + x(i) * pnode_Katz(i)
+            tmp_x = tmp_x + Abs(x(i) - pnode_Katz(i))
         Next i
-        norm = Sgn(tmp_x) * Sqr(norm)
-        For i = 1 To pSize
-            x(i) = x(i) / norm
-        Next i
-        tmp_x = tmp_x / norm
-        tmp_x = Abs(tmp_x - 1)
         pnode_Katz = x
         If tmp_x < tol Then Exit For
     Next iterate
