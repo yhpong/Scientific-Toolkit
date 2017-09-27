@@ -200,7 +200,7 @@ The "outlier-ness" of each data can be meaurserd by these 4 measures: Mahalanobi
 ```
 x_MD = mOutliers.MahalanobisDist(x)
 x_LOF = mOutliers.LOF(x, 5)
-x_kNN = mOutliers.KthNeighborDist_kdtree(x, 5)
+x_kNN = mOutliers.KthNeighborDist(x, 5, True)
 x_influence = mOutliers.Influence_Iterate(x)
 ```
 
