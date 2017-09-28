@@ -1780,6 +1780,51 @@ Dim LU() As Double, p() As Long, x() As Double, y() As Double
 End Function
 
 
+'Solve for x() s.t. Ax=y, where A() is a NxN tri-diagonal matrix, represented as A(1:N,1:3)
+Function Solve_Tridiag(ByVal A As Variant, ByVal y As Variant) As Double()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long
+Dim mm As Long, nn As Long
+Dim x() As Double
+    m = LBound(A, 1)
+    n = UBound(A, 1)
+    If UBound(A, 2) <> 3 Or A(m, 1) <> 0 Or A(n, 3) <> 0 Then
+        Debug.Print "Solve_Tridiag: A() is not in tri-diagonal form. "
+        Exit Function
+    End If
+    For i = m + 1 To n
+        A(i, 2) = A(i, 2) * A(i - 1, 2) - A(i, 1) * A(i - 1, 3)
+        A(i, 3) = A(i - 1, 2) * A(i, 3)
+    Next i
+    k = getDimension(y)
+    If k = 1 Then
+        For i = m + 1 To n
+            y(i) = y(i) * A(i - 1, 2) - y(i - 1) * A(i, 1)
+        Next i
+        ReDim x(m To n)
+        x(n) = y(n) / A(n, 2)
+        For i = n - 1 To m Step -1
+            x(i) = (y(i) - A(i, 3) * x(i + 1)) / A(i, 2)
+        Next i
+    ElseIf k = 2 Then
+        mm = LBound(y, 2)
+        nn = UBound(y, 2)
+        ReDim x(m To n, mm To nn)
+        For k = mm To nn
+            For i = m + 1 To n
+                y(i, k) = y(i, k) * A(i - 1, 2) - y(i - 1, k) * A(i, 1)
+            Next i
+            x(n, k) = y(n, k) / A(n, 2)
+            For i = n - 1 To m Step -1
+                x(i, k) = (y(i, k) - A(i, 3) * x(i + 1, k)) / A(i, 2)
+            Next i
+        Next k
+    End If
+    Solve_Tridiag = x
+    Erase x, A, y
+End Function
+
+
+
 '======================
 'Data preparation
 '======================
@@ -1996,6 +2041,160 @@ Dim n_raw As Long, n_dimension As Long
     Next k
 End Sub
 
+
+'=== Upsample a vector y(1:N) to y(1:((N-1)*mag+1)) by interpolation
+'Input:  mag, number of points to interpolate
+'        y(), vector of size 1:N
+'        method, 1=linear, 3=cubic spline
+'        x(), timestep, vector of size 1:N, if skipped data is assumed to be evenly spaced
+'Output: y2(), upsampled vector of size 1:((N-1)*mag+1)
+'        x2(), upsampled time step of size 1:((N-1)*mag+1)
+Sub Interpol(mag As Long, y() As Double, y2() As Double, _
+    Optional method As Long = 1, Optional x As Variant, Optional x2 As Variant)
+    If method = 1 Then
+        If IsMissing(x) = False Then
+            If IsMissing(x2) Then
+                Debug.Print "Interpol: x and x2 must both be supplied."
+                Exit Sub
+            End If
+            Call Interpol_Linear(mag, y, y2, x, x2)
+        Else
+            Call Interpol_Linear_Regular(mag, y, y2)
+        End If
+    ElseIf method = 3 Then
+        If IsMissing(x) = False Then
+            If IsMissing(x2) Then
+                Debug.Print "Interpol: x and x2 must both be supplied."
+                Exit Sub
+            End If
+            Call Cubic_Spline(mag, y, y2, x, x2)
+        Else
+            Call Cubic_Spline_Regular(mag, y, y2)
+        End If
+    Else
+        Debug.Print "Interpol: method must either be 1 (linear) or 3 (cubic)."
+        Exit Sub
+    End If
+End Sub
+
+Private Sub Interpol_Linear(mag As Long, y() As Double, y2() As Double, x As Variant, x2 As Variant)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, ii As Long
+Dim tmp_x As Double, tmp_y As Double
+    n = UBound(y, 1)
+    ReDim x2(1 To ((n - 1) * mag + 1))
+    ReDim y2(1 To ((n - 1) * mag + 1))
+    For i = 1 To n - 1
+        ii = (i - 1) * mag + 1
+        x2(ii) = x(i)
+        y2(ii) = y(i)
+        tmp_x = (x(i + 1) - x(i)) / mag
+        tmp_y = (y(i + 1) - y(i)) / mag
+        For j = 1 To mag - 1
+            x2(ii + j) = x(i) + j * tmp_x
+            y2(ii + j) = y(i) + j * tmp_y
+        Next j
+    Next i
+    x2((n - 1) * mag + 1) = x(n)
+    y2((n - 1) * mag + 1) = y(n)
+End Sub
+
+Private Sub Interpol_Linear_Regular(mag As Long, y() As Double, y2() As Double)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, ii As Long
+Dim tmp_x As Double, tmp_y As Double
+    n = UBound(y, 1)
+    ReDim y2(1 To ((n - 1) * mag + 1))
+    For i = 1 To n - 1
+        ii = (i - 1) * mag + 1
+        y2(ii) = y(i)
+        tmp_y = (y(i + 1) - y(i)) / mag
+        For j = 1 To mag - 1
+            y2(ii + j) = y(i) + j * tmp_y
+        Next j
+    Next i
+    y2((n - 1) * mag + 1) = y(n)
+End Sub
+
+Private Sub Cubic_Spline(mag As Long, y() As Double, y2() As Double, x As Variant, x2 As Variant)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, ii As Long
+Dim A() As Double, u() As Double
+Dim tmp_x As Double, tmp_y As Double, t As Double, tmp_v As Double, tmp_w As Double
+    n = UBound(y, 1)
+    ReDim A(1 To n, 1 To 3)
+    ReDim u(1 To n)
+    A(1, 2) = 2 / (x(2) - x(1))
+    A(1, 3) = 1 / (x(2) - x(1))
+    u(1) = 3 * (y(2) - y(1)) / ((x(2) - x(1)) ^ 2)
+    A(n, 1) = 1 / (x(n) - x(n - 1))
+    A(n, 2) = 2 / (x(n) - x(n - 1))
+    u(n) = 3 * (y(n) - y(n - 1)) / ((x(n) - x(n - 1)) ^ 2)
+    For i = 2 To n - 1
+        tmp_x = x(i) - x(i - 1)
+        tmp_y = x(i + 1) - x(i)
+        A(i, 1) = 1 / tmp_x
+        A(i, 2) = 2 / tmp_x + 2 / tmp_y
+        A(i, 3) = 1 / tmp_y
+        u(i) = 3 * ((y(i) - y(i - 1)) / (tmp_x ^ 2) + (y(i + 1) - y(i)) / (tmp_y ^ 2))
+    Next i
+    u = Solve_Tridiag(A, u)
+    Erase A
+
+    ReDim x2(1 To ((n - 1) * mag + 1))
+    ReDim y2(1 To ((n - 1) * mag + 1))
+    For i = 1 To n - 1
+        ii = (i - 1) * mag + 1
+        x2(ii) = x(i)
+        y2(ii) = y(i)
+        tmp_x = (x(i + 1) - x(i)) / mag
+        tmp_v = u(i) * (x(i + 1) - x(i)) - (y(i + 1) - y(i))
+        tmp_w = -u(i + 1) * (x(i + 1) - x(i)) + (y(i + 1) - y(i))
+        For j = 1 To mag - 1
+            t = j / mag
+            x2(ii + j) = x(i) + j * tmp_x
+            y2(ii + j) = (1 - t) * y(i) + t * y(i + 1) + t * (1 - t) * (tmp_v * (1 - t) + tmp_w * t)
+        Next j
+    Next i
+    x2((n - 1) * mag + 1) = x(n)
+    y2((n - 1) * mag + 1) = y(n)
+    Erase u
+End Sub
+
+Private Sub Cubic_Spline_Regular(mag As Long, y() As Double, y2() As Double)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, ii As Long
+Dim A() As Double, u() As Double
+Dim tmp_x As Double, tmp_y As Double, t As Double, tmp_v As Double, tmp_w As Double
+    n = UBound(y, 1)
+    ReDim A(1 To n, 1 To 3)
+    ReDim u(1 To n)
+    A(1, 2) = 2
+    A(1, 3) = 1
+    u(1) = 3 * (y(2) - y(1))
+    A(n, 1) = 1
+    A(n, 2) = 2
+    u(n) = 3 * (y(n) - y(n - 1))
+    For i = 2 To n - 1
+        A(i, 1) = 1
+        A(i, 2) = 4
+        A(i, 3) = 1
+        u(i) = 3 * (y(i + 1) - y(i - 1))
+    Next i
+    u = Solve_Tridiag(A, u)
+    Erase A
+
+    ReDim y2(1 To ((n - 1) * mag + 1))
+    For i = 1 To n - 1
+        ii = (i - 1) * mag + 1
+        y2(ii) = y(i)
+        tmp_x = 1 / mag
+        tmp_v = u(i) - (y(i + 1) - y(i))
+        tmp_w = -u(i + 1) + (y(i + 1) - y(i))
+        For j = 1 To mag - 1
+            t = j / mag
+            y2(ii + j) = (1 - t) * y(i) + t * y(i + 1) + t * (1 - t) * (tmp_v * (1 - t) + tmp_w * t)
+        Next j
+    Next i
+    y2((n - 1) * mag + 1) = y(n)
+    Erase u
+End Sub
 
 
 '================================================
