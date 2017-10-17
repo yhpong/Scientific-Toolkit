@@ -3075,7 +3075,68 @@ Function FileIsLocked(strFileName As String) As Boolean
 End Function
 
 
+'=== Read mutli-dimensional data from CSV file
+'Input: strPath, path to csv file
+'       strDelimiter, delimiter to use
+'Output: y(1:N), vector of size N from the first column, N is number of lines except the first.
+'        x(1:N,1:D), array of size NxD where D is the number of columns except the first.
+'        x_labels(1:D), column label of x() if first line is header
+Sub Read_csv(strPath As String, y As Variant, x As Variant, _
+            Optional strDelimiter As String = ",", _
+            Optional first_header As Boolean = True, Optional x_labels As Variant)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, vFF As Long
+Dim n_raw As Long, n_dimension As Long
+Dim strArr As Variant, xArr As Variant
+Dim FileContents As String
 
+    vFF = VBA.FreeFile
+    Open strPath For Binary Access Read As #vFF
+    FileContents = VBA.Space$(LOF(vFF))
+    Get #vFF, , FileContents
+    Close #vFF
+    
+    strArr = VBA.Split(FileContents, vbCrLf)    '0-base matrix
+    xArr = VBA.Split(strArr(0), strDelimiter)   '0-base vector
+    n_raw = UBound(strArr, 1)
+    If VBA.Len(strArr(n_raw)) = 0 Then n_raw = n_raw - 1 'delete last row if empty
+    If first_header = False Then n_raw = n_raw + 1
+    n_dimension = UBound(xArr, 1)
+    
+    'Read column headings
+    If IsMissing(x_labels) = False Then
+        ReDim x_labels(1 To n_dimension)
+        If first_header = True Then
+            For j = 1 To n_dimension
+                x_labels(j) = xArr(j - 1)
+            Next j
+        Else
+            For j = 1 To n_dimension
+                x_labels(j) = VBA.Format(j, "000")
+            Next j
+        End If
+    End If
+
+    'Start reading data from second line if first
+    'line is header, read from first line otherwise
+    k = 0
+    If first_header = False Then k = -1
+    ReDim x(1 To n_raw, 1 To n_dimension)
+    ReDim y(1 To n_raw)
+    For i = 1 To n_raw
+        If i Mod 100 = 0 Then
+            DoEvents
+            Application.StatusBar = "Reading csv: " & i & "/" & n_raw
+        End If
+        xArr = VBA.Split(strArr(i + k), strDelimiter)
+        y(i) = xArr(0)
+        For j = 1 To n_dimension
+            x(i, j) = xArr(j)
+        Next j
+    Next i
+    
+    Erase strArr, xArr
+    Application.StatusBar = False
+End Sub
 
 '========================================
 'Probability Distribution
