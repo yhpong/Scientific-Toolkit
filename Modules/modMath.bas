@@ -3107,7 +3107,7 @@ Dim FileContents As String
         ReDim x_labels(1 To n_dimension)
         If first_header = True Then
             For j = 1 To n_dimension
-                x_labels(j) = xArr(j - 1)
+                x_labels(j) = xArr(j)
             Next j
         Else
             For j = 1 To n_dimension
