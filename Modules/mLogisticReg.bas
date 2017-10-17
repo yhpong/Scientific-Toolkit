@@ -12,8 +12,10 @@ Sub Binary_Train(beta() As Double, y As Variant, x As Variant, _
         Optional learn_rate As Double = 0.001, Optional momentum As Double = 0.5, _
         Optional mini_batch As Long = 5, _
         Optional epoch_max As Long = 1000, _
-        Optional conv_max As Long = 5, Optional conv_tol As Double = 0.0000001, _
-        Optional loss_function As Variant, Optional L1 As Double = 0, Optional L2 As Double = 0, Optional show_progress As Boolean = True)
+        Optional conv_max As Long = 5, Optional conv_tol As Double = 0.000001, _
+        Optional loss_function As Variant, _
+        Optional L1 As Double = 0, Optional L2 As Double = 0, _
+        Optional show_progress As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_dimension As Long, ii As Long
 Dim batch_count As Long, epoch As Long, conv_count As Long
 Dim tmp_x As Double, tmp_y As Double, delta As Double, y_output As Double
@@ -59,7 +61,7 @@ Dim iArr() As Long
             Next j
             
             y_output = 1# / (1 + Exp(-tmp_x)) 'Sigmoid function
-            loss(epoch) = loss(epoch) - y(i) * Log(y_output) - (1 - y(i)) * Log(1 - y_output) 'accumulate loss function
+            'loss(epoch) = loss(epoch) - y(i) * Log(y_output) - (1 - y(i)) * Log(1 - y_output) 'accumulate loss function
             
             'accumulate gradient
             delta = y_output - y(i)
@@ -97,7 +99,8 @@ Dim iArr() As Long
             
         Next ii
         
-        loss(epoch) = loss(epoch) / n
+        'loss(epoch) = loss(epoch) / n
+        loss(epoch) = Cross_Entropy(y, Binary_InOut(beta, x))
         
         If L1 > 0 Then
             tmp_x = 0
@@ -112,12 +115,12 @@ Dim iArr() As Long
             For j = 1 To n_dimension
                 tmp_x = tmp_x + beta(j) ^ 2
             Next j
-            loss(epoch) = loss(epoch) + L2 * tmp_x
+            loss(epoch) = loss(epoch) + L2 * tmp_x / 2
         End If
         
         'early terminate on convergence
         If epoch > 1 Then
-            If loss(epoch) < loss(epoch - 1) Then
+            If loss(epoch) <= loss(epoch - 1) Then
                 conv_count = conv_count + 1
                 If conv_count > conv_max Then
                     If (loss(epoch - 1) - loss(epoch)) < conv_tol Then
@@ -145,7 +148,7 @@ Sub Binary_Train_CV(beta() As Double, y As Variant, x As Variant, Optional K_fol
         Optional learn_rate As Double = 0.001, Optional momentum As Double = 0.5, _
         Optional mini_batch As Long = 5, _
         Optional epoch_max As Long = 1000, _
-        Optional conv_max As Long = 5, Optional conv_tol As Double = 0.0000001, _
+        Optional conv_max As Long = 5, Optional conv_tol As Double = 0.000001, _
         Optional loss_function As Variant, _
         Optional L1_max As Double = 0.01, Optional L2_max As Double = 2)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_dimension As Long
