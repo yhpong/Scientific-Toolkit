@@ -15,23 +15,20 @@ Sub Binary_Train(beta() As Double, y As Variant, x As Variant, _
         Optional conv_max As Long = 5, Optional conv_tol As Double = 0.000001, _
         Optional loss_function As Variant, _
         Optional L1 As Double = 0, Optional L2 As Double = 0, _
+        Optional adaptive_learn As Boolean = True, _
         Optional show_progress As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_dimension As Long, ii As Long
 Dim batch_count As Long, epoch As Long, conv_count As Long
 Dim tmp_x As Double, tmp_y As Double, delta As Double, y_output As Double
-Dim loss() As Double, grad() As Double, beta_chg() As Double
+Dim loss() As Double, grad() As Double, grad_prev() As Double, gain() As Double, beta_chg() As Double
 Dim iArr() As Long
     n = UBound(x, 1)            'number of observations
     n_dimension = UBound(x, 2)  'number of dimensions
     
-    'Randomly initialize beta()
-    Randomize
+    'Initialize beta() to zeroes
     ReDim beta(1 To n_dimension + 1)
     ReDim beta_chg(1 To n_dimension + 1)
-    For j = 1 To n_dimension + 1
-        beta(j) = -1 + 2 * Rnd()
-    Next j
-    
+
     'Perform gradient descent
     conv_count = 0
     ReDim loss(1 To epoch_max)
@@ -48,19 +45,25 @@ Dim iArr() As Long
         iArr = modMath.index_array(1, n)
         Call modMath.Shuffle(iArr)
         
-        'Scan through dataset
+        'Reset gradients
         batch_count = 0
         ReDim grad(1 To n_dimension + 1)
+        ReDim grad_prev(1 To n_dimension + 1)
+        ReDim gain(1 To n_dimension + 1)
+        For j = 1 To n_dimension + 1
+            gain(j) = 1
+        Next j
+        
+        'Scan through dataset
         For ii = 1 To n
             i = iArr(ii)
             
             'beta dot x
-            tmp_x = beta(n_dimension + 1)
+            y_output = beta(n_dimension + 1)
             For j = 1 To n_dimension
-                tmp_x = tmp_x + beta(j) * x(i, j)
+                y_output = y_output + beta(j) * x(i, j)
             Next j
-            
-            y_output = 1# / (1 + Exp(-tmp_x)) 'Sigmoid function
+            y_output = 1# / (1 + Exp(-y_output)) 'Sigmoid function
             'loss(epoch) = loss(epoch) - y(i) * Log(y_output) - (1 - y(i)) * Log(1 - y_output) 'accumulate loss function
             
             'accumulate gradient
@@ -87,18 +90,23 @@ Dim iArr() As Long
                     Next j
                 End If
                 
+                If adaptive_learn = True Then
+                    Call calc_gain(grad, grad_prev, gain)
+                End If
+                
                 For j = 1 To n_dimension + 1
-                    beta_chg(j) = momentum * beta_chg(j) - grad(j) * learn_rate
+                    beta_chg(j) = momentum * beta_chg(j) - grad(j) * learn_rate * gain(j)
                     beta(j) = beta(j) + beta_chg(j)
                 Next j
                 
                 'reset mini batch count and gradient
                 batch_count = 0
+                grad_prev = grad
                 ReDim grad(1 To n_dimension + 1)
             End If
             
         Next ii
-        
+
         'loss(epoch) = loss(epoch) / n
         loss(epoch) = Cross_Entropy(y, Binary_InOut(beta, x))
         
@@ -120,6 +128,10 @@ Dim iArr() As Long
         
         'early terminate on convergence
         If epoch > 1 Then
+            If loss(epoch) < 0.05 Then
+                ReDim Preserve loss(1 To epoch)
+                Exit For
+            End If
             If loss(epoch) <= loss(epoch - 1) Then
                 conv_count = conv_count + 1
                 If conv_count > conv_max Then
@@ -150,7 +162,8 @@ Sub Binary_Train_CV(beta() As Double, y As Variant, x As Variant, Optional K_fol
         Optional epoch_max As Long = 1000, _
         Optional conv_max As Long = 5, Optional conv_tol As Double = 0.000001, _
         Optional loss_function As Variant, _
-        Optional L1_max As Double = 0.01, Optional L2_max As Double = 2)
+        Optional L1_max As Double = 0.01, Optional L2_max As Double = 2, _
+        Optional adaptive_learn As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_dimension As Long
 Dim i_cv As Long, ii As Long, jj As Long
 Dim n_train As Long, n_validate As Long
@@ -210,7 +223,7 @@ Dim y_train() As Double, y_validate() As Double
                 Call modMath.Filter_Array(x, x_train, i_train)
                 
                 Call Binary_Train(tmp_vec, y_train, x_train, learn_rate, momentum, _
-                    mini_batch, epoch_max, conv_max, conv_tol, , L1, L2, False)
+                    mini_batch, epoch_max, conv_max, conv_tol, , L1, L2, adaptive_learn, False)
                     
                 y_output = Binary_InOut(tmp_vec, x_validate)
                 accur(ii, jj) = accur(ii, jj) + Accuracy(y_validate, y_output) * UBound(y_validate) / n
@@ -234,7 +247,7 @@ Dim y_train() As Double, y_validate() As Double
     
     'Use selected L1 & L2 to train on whole data set
     Call Binary_Train(beta, y, x, learn_rate, momentum, _
-            mini_batch, epoch_max, conv_max, conv_tol, loss, L1, L2, True)
+            mini_batch, epoch_max, conv_max, conv_tol, loss, L1, L2, adaptive_learn, True)
             
     If IsMissing(loss_function) = False Then loss_function = loss
     
@@ -305,3 +318,28 @@ Dim y() As Double
     Binary_InOut = y
     Erase y
 End Function
+
+
+Sub Rescale_beta(beta() As Double, x_mean() As Double, x_sd() As Double)
+Dim i As Long, n As Long
+    n = UBound(beta) - 1
+    For i = 1 To n
+        beta(n + 1) = beta(n + 1) - beta(i) * x_mean(i) / x_sd(i)
+        beta(i) = beta(i) / x_sd(i)
+    Next i
+End Sub
+
+
+Private Sub calc_gain(grad() As Double, grad_prev() As Double, gain() As Double)
+Dim i As Long, n As Long
+    n = UBound(grad)
+    For i = 1 To n
+        If Sgn(grad(i)) = Sgn(grad_prev(i)) Then
+            gain(i) = gain(i) * 1.1
+        Else
+            gain(i) = gain(i) * 0.9
+        End If
+        If gain(i) > 1000 Then gain(i) = 1000
+        If gain(i) < 0.01 Then gain(i) = 0.01
+    Next i
+End Sub
