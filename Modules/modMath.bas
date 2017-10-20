@@ -3008,80 +3008,46 @@ End If
 
 End Sub
 
+
 Function ANN_Curve_Fit(y() As Double, x() As Double, _
-        Optional num_neurons As Long = 8, _
+        Optional num_neurons As Long = 13, _
         Optional learn_rate As Double = 0.5, _
-        Optional momentum As Double = 0.8, _
-        Optional iterate_max As Long = 5000, _
+        Optional momentum As Double = 0.9, _
+        Optional mini_batch As Long = 100, _
+        Optional iterate_max As Long = 1000, _
         Optional mse_min As Double = 0.001, _
-        Optional threshold As Double = 1) As Double()
-Dim i As Long, j As Long, m As Long, n As Long, k As Long, x_dim As Long
+        Optional L1 As Double = 0, Optional L2 As Double = 0, Optional LMAX As Double = 0) As Double()
+Dim i As Long, j As Long, m As Long, n As Long, k As Long
 Dim n_raw As Long, n_dimension As Long
-Dim x_min As Double, x_max As Double
-Dim y_min As Double, y_max As Double
-Dim target() As Double, x_train() As Double, mse() As Double
+Dim y_shift() As Double, y_scale() As Double
+Dim target() As Double, x_train() As Double
 Dim ANN1 As cANN_Regression
-Dim INFINITY As Double
-INFINITY = Exp(70)
-n_raw = UBound(y)
-x_dim = getDimension(x)
-If x_dim = 1 Then
-    n_dimension = 1
-Else
-    n_dimension = UBound(x, 2)
-End If
-ReDim target(1 To n_raw, 1 To 1)
-ReDim x_train(1 To n_raw, 1 To n_dimension)
-
-y_min = INFINITY
-y_max = -INFINITY
-For i = 1 To n_raw
-    If y(i) > y_max Then y_max = y(i)
-    If y(i) < y_min Then y_min = y(i)
-Next i
-For i = 1 To n_raw
-    target(i, 1) = (y(i) - y_min) / (y_max - y_min)
-Next i
-
-For j = 1 To n_dimension
-    x_min = INFINITY
-    x_max = -INFINITY
-    If x_dim > 1 Then
-        For i = 1 To n_raw
-            If x(i, j) > x_max Then x_max = x(i, j)
-            If x(i, j) < x_min Then x_min = x(i, j)
-        Next i
-        For i = 1 To n_raw
-            x_train(i, j) = (x(i, j) - x_min) / (x_max - x_min)
-        Next i
-    ElseIf x_dim = 1 Then
-        For i = 1 To n_raw
-            If x(i) > x_max Then x_max = x(i)
-            If x(i) < x_min Then x_min = x(i)
-        Next i
-        For i = 1 To n_raw
-            x_train(i, j) = (x(i) - x_min) / (x_max - x_min)
-        Next i
+    n_raw = UBound(y)
+    If getDimension(x) = 1 Then
+        n_dimension = 1
+        Call Promote_Vec(x, x_train)
+    Else
+        n_dimension = UBound(x, 2)
+        x_train = x
     End If
-Next j
-
-'=== Train Network
-Set ANN1 = New cANN_Regression
-With ANN1
-    Call .Init(n_dimension, 1, num_neurons)
-    Call .Trainer(x_train, target, learn_rate, momentum, mse, iterate_max, mse_min)
-    Call .InOut(x_train, target)
-    Call .Reset
-End With
-Set ANN1 = Nothing
-'=======================================
-
-ReDim x_train(1 To n_raw)
-For i = 1 To n_raw
-    x_train(i) = target(i, 1) * (y_max - y_min) + y_min
-Next i
-ANN_Curve_Fit = x_train
-Erase target, x_train, mse
+    Call Promote_Vec(y, target)
+    Call Normalize_x(x_train, y_shift, y_scale, "MEDRNG")
+    Call Normalize_x(target, y_shift, y_scale, "MEDRNG")
+    Call Squash_x(target, 1)
+    m = mini_batch
+    If m = 0 Then m = n_raw
+    Set ANN1 = New cANN_Regression
+    With ANN1
+        Call .Init(n_dimension, 1, num_neurons)
+        Call .Trainer(x_train, target, learn_rate, momentum, m, iterate_max, mse_min, L1, L2, LMAX)
+        Call .InOut(x_train, target)
+        Call .Reset
+    End With
+    Set ANN1 = Nothing
+    Call modMath.UnSquash_x(target, 1)
+    Call Recover_x(target, y_shift, y_scale)
+    Call get_vector(target, 1, 2, ANN_Curve_Fit)
+    Erase target, x_train, y_shift, y_scale
 End Function
 
 
