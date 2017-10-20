@@ -558,6 +558,45 @@ Function wkshtTranspose(A As Variant) As Variant
 End Function
 
 
+'For the k-th step during a k-fold cross validation, return the index of training set and validation set
+Sub CrossValidate_set(k As Long, k_fold As Long, iList() As Long, i_validate() As Long, i_train() As Long)
+Dim i As Long, j As Long, m As Long, n As Long, n_train As Long, n_validate As Long
+    n = UBound(iList, 1)
+    n_validate = n \ k_fold
+    n_train = n - n_validate
+    ReDim i_validate(1 To n_validate)
+    ReDim i_train(1 To n_train)
+    
+    'Validation set
+    For i = 1 To n_validate
+        i_validate(i) = iList((k - 1) * n_validate + i)
+    Next i
+    
+    'Training set
+    j = 0
+    If k > 1 Then
+        For i = 1 To (k - 1) * n_validate
+            j = j + 1
+            i_train(j) = iList(i)
+        Next i
+    End If
+    For i = k * n_validate + 1 To n
+        j = j + 1
+        i_train(j) = iList(i)
+    Next i
+
+    'If there are unused data at the last step add them to the validation set
+    If k = k_fold And (k * n_validate) < n Then
+        m = n - (k * n_validate)
+        ReDim Preserve i_validate(1 To n_validate + m)
+        ReDim Preserve i_train(1 To n_train - m)
+        For i = 1 To m
+            i_validate(n_validate + i) = iList(k * n_validate + i)
+        Next i
+    End If
+End Sub
+
+
 
 '========================================
 ' Random Numbers
