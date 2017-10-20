@@ -3148,7 +3148,7 @@ Dim FileContents As String
 
     vFF = VBA.FreeFile
     Open strPath For Binary Access Read As #vFF
-    FileContents = VBA.Space$(LOF(vFF))
+    FileContents = VBA.Space$(VBA.LOF(vFF))
     Get #vFF, , FileContents
     Close #vFF
     
@@ -4520,7 +4520,7 @@ End Sub
 '"Numerical Recipes in Fortran 77: The Art of Scientific Computing", Section 2.6, Page 59)
 'http://www.aip.de/groups/soe/local/numres/bookfpdf/f2-6.pdf
 'Given a matrix a(1:m,1:n), with physical dimensions mp by np, this routine computes its
-'singular value decomposition, A = U · W · V T . The matrix U replaces a on output. The
+'singular value decomposition, A = U Â· W Â· V T . The matrix U replaces a on output. The
 'diagonal matrix of singular values W is output as a vector w(1:n). The matrix V (not the
 'transpose V T ) is output as v(1:n,1:n).
 Private Sub SVDCMP(A() As Double, w() As Double, v() As Double)
