@@ -11,10 +11,10 @@ Option Explicit
 Sub Binary_Train(beta() As Double, y As Variant, x As Variant, _
         Optional learn_rate As Double = 0.001, Optional momentum As Double = 0.5, _
         Optional mini_batch As Long = 5, _
-        Optional epoch_max As Long = 1000, _
+        Optional epoch_max As Long = 2000, _
         Optional conv_max As Long = 5, Optional conv_tol As Double = 0.000001, _
         Optional loss_function As Variant, _
-        Optional L1 As Double = 0, Optional L2 As Double = 0, _
+        Optional L2 As Double = 0, _
         Optional adaptive_learn As Boolean = True, _
         Optional show_progress As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_dimension As Long, ii As Long
@@ -82,11 +82,11 @@ Dim iArr() As Long
                 For j = 1 To n_dimension + 1
                     grad(j) = grad(j) / batch_count
                 Next j
-                If L1 > 0 Then 'L1-regularization
-                    For j = 1 To n_dimension
-                        grad(j) = grad(j) + L1 * Sgn(beta(j))
-                    Next j
-                End If
+'                If L1 > 0 Then 'L1-regularization
+'                    For j = 1 To n_dimension
+'                        grad(j) = grad(j) + L1 * Sgn(beta(j))
+'                    Next j
+'                End If
                 If L2 > 0 Then 'L2-regularization
                     For j = 1 To n_dimension
                         grad(j) = grad(j) + L2 * beta(j)
@@ -146,14 +146,13 @@ End Sub
 Sub Binary_Train_CV(beta() As Double, y As Variant, x As Variant, Optional k_fold As Long = 10, _
         Optional learn_rate As Double = 0.001, Optional momentum As Double = 0.5, _
         Optional mini_batch As Long = 5, _
-        Optional epoch_max As Long = 1000, _
+        Optional epoch_max As Long = 2000, _
         Optional conv_max As Long = 5, Optional conv_tol As Double = 0.000001, _
         Optional loss_function As Variant, _
-        Optional L1_max As Double = 0.01, Optional L2_max As Double = 2, _
+        Optional L2_max As Double = 1, Optional L2_best As Variant, _
         Optional adaptive_learn As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_dimension As Long
 Dim i_cv As Long, ii As Long, jj As Long, ii_max As Long, jj_max As Long
-Dim n_train As Long, n_validate As Long
 Dim tmp_x As Double, L1 As Double, L2 As Double
 Dim loss() As Double, loss_min As Double
 Dim accur() As Double, accur_max As Double
@@ -163,33 +162,34 @@ Dim x_train() As Double, x_validate() As Double
 Dim y_train() As Double, y_validate() As Double
     n = UBound(x, 1)            'number of observations
     n_dimension = UBound(x, 2)  'number of dimensions
-    n_validate = n \ k_fold
-    n_train = n - n_validate
     
     'Shuffle data set
     iArr = modMath.index_array(1, n)
     Call modMath.Shuffle(iArr)
     
-    ii_max = 0: jj_max = 0
-    L1 = 0: L2 = 0
-    If L1_max > 0 Then ii_max = 5
-    If L2_max > 0 Then jj_max = 5
+    'ii_max = 0: L1 = 0
+    jj_max = 0: L2 = 0
+    'If L1_max > 0 Then ii_max = 5
+    If L2_max > 0 Then jj_max = 6
     
     'ReDim accur(0 To ii_max, 0 To jj_max)
-    ReDim loss(0 To ii_max, 0 To jj_max)
+    ReDim loss(0 To jj_max)
     
     'Outer loop for different L1 & L2 values
-    For ii = 0 To ii_max
-        If ii_max > 0 Then L1 = ii * L1_max / ii_max
+'    For ii = 0 To ii_max
+'        If ii_max > 0 Then L1 = ii * L1_max / ii_max
         For jj = 0 To jj_max
-            If jj_max > 0 Then L2 = jj * L2_max / jj_max
+            If jj = 0 Then
+                L2 = 0
+            Else
+                L2 = L2_max * (10 ^ (jj - jj_max))
+            End If
             
             'K-fold cross-validation
             For i_cv = 1 To k_fold
             
                 DoEvents
-                Application.StatusBar = "Binary_Train_CV: " & ii & "/" & ii_max & _
-                        " ; " & jj & "/" & jj_max & ";" & i_cv & "/" & k_fold
+                Application.StatusBar = "Binary_Train_CV: " & jj & "/" & jj_max & ";" & i_cv & "/" & k_fold
                         
                 Call modMath.CrossValidate_set(i_cv, k_fold, iArr, i_validate, i_train)
                 Call modMath.Filter_Array(y, y_validate, i_validate)
@@ -198,28 +198,33 @@ Dim y_train() As Double, y_validate() As Double
                 Call modMath.Filter_Array(x, x_train, i_train)
                 
                 Call Binary_Train(beta, y_train, x_train, learn_rate, momentum, _
-                    mini_batch, epoch_max, conv_max, conv_tol, , L1, L2, adaptive_learn, False)
+                    mini_batch, epoch_max, conv_max, conv_tol, , L2, adaptive_learn, False)
                     
                 y_output = Binary_InOut(beta, x_validate)
                 'accur(ii, jj) = accur(ii, jj) + Accuracy(y_validate, y_output) * UBound(y_validate) / n
-                loss(ii, jj) = loss(ii, jj) + Cross_Entropy(y_validate, y_output) / k_fold
+                loss(jj) = loss(jj) + Cross_Entropy(y_validate, y_output) / k_fold
                 
             Next i_cv
         Next jj
-    Next ii
+'    Next ii
     
     'Find L1 & L2 that gives lowest loss
     loss_min = Exp(70)
-    For ii = 0 To ii_max
+'    For ii = 0 To ii_max
         For jj = 0 To jj_max
-            If loss(ii, jj) < loss_min Then
-                loss_min = loss(ii, jj)
-                If ii_max > 0 Then L1 = ii * L1_max / ii_max
-                If jj_max > 0 Then L2 = jj * L2_max / jj_max
+            If loss(jj) < loss_min Then
+                loss_min = loss(jj)
+                'If ii_max > 0 Then L1 = ii * L1_max / ii_max
+                If jj = 0 Then
+                    L2 = 0
+                Else
+                    L2 = L2_max * (10 ^ (jj - jj_max))
+                End If
             End If
         Next jj
-    Next ii
-    Debug.Print "Binary_Train_CV: Best(L1,L2)= (" & L1 & ", " & L2; "), loss=" & loss_min
+'    Next ii
+    Debug.Print "Binary_Train_CV: Best L2 = " & L2 & ", loss=" & loss_min
+    If IsMissing(L2_best) = False Then L2_best = L2
     
 '    accur_max = -Exp(70)
 '    For ii = 0 To 5
@@ -235,7 +240,7 @@ Dim y_train() As Double, y_validate() As Double
     
     'Use selected L1 & L2 to train on whole data set
     Call Binary_Train(beta, y, x, learn_rate, momentum, _
-            mini_batch, epoch_max, conv_max, conv_tol, loss, L1, L2, adaptive_learn, True)
+            mini_batch, epoch_max, conv_max, conv_tol, loss, L2, adaptive_learn, True)
             
     If IsMissing(loss_function) = False Then loss_function = loss
 
