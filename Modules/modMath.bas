@@ -1386,6 +1386,58 @@ Dim Coeff() As Double, y_fit() As Double
 End Function
 
 
+'=== Ridge Regression
+'L = ||y - b x||^2+ (lambda/N)||b||^2
+Function RidgeReg(ByVal y As Variant, ByVal x As Variant, Optional lambda As Double = 0.1) As Double()
+Dim i As Long, j As Long, k As Long, n As Long, n_dimension As Long
+Dim x_mean() As Double, x_sd() As Double
+Dim y_mean As Double, y_sd As Double
+Dim u() As Double, s() As Double, v() As Double
+Dim beta() As Double
+    n = UBound(y, 1)
+    If getDimension(x) = 1 Then
+        n_dimension = 1
+        Call Promote_Vec(x, x)
+    Else
+        n_dimension = UBound(x, 2)
+    End If
+    
+    'scale to zero mean and variance
+    Call Normalize_x(x, x_mean, x_sd, "AVGSD")
+    y_mean = 0
+    y_sd = 0
+    For i = 1 To n
+        y_mean = y_mean + y(i)
+        y_sd = y_sd + y(i) ^ 2
+    Next i
+    y_mean = y_mean / n
+    y_sd = Sqr((y_sd - n * (y_mean ^ 2)) / (n - 1))
+    For i = 1 To n
+        y(i) = (y(i) - y_mean) / y_sd
+    Next i
+    
+    'X=UDV'
+    'beta = V (D/(D^2+lambda)) U' y
+    Call Matrix_SVD(x, u, s, v)
+    For i = 1 To UBound(s)
+        s(i) = s(i) / (s(i) ^ 2 + n * lambda)
+    Next i
+    s = mDiag(s)
+    beta = M_Dot(modMath.M_Dot(v, s), modMath.M_Dot(u, y, 1))
+    
+    'Restore to original scale
+    ReDim Preserve beta(1 To n_dimension + 1)
+    beta(n_dimension + 1) = y_mean
+    For i = 1 To n_dimension
+        beta(i) = beta(i) * y_sd / x_sd(i)
+        beta(n_dimension + 1) = beta(n_dimension + 1) - beta(i) * x_mean(i)
+    Next i
+
+    RidgeReg = beta
+    Erase beta, u, s, v, x_mean, x_sd
+End Function
+
+
 'Solve system of linear equations with Gaussian Eliminations
 'Input: A(1 to N, 1 to N), square matrix with coefficients to independent variables
 'Input: y(1 to N), vector of dependent variables
@@ -1916,7 +1968,7 @@ End Sub
 'Original data can be recovered by x*x_scale+x_shift
 'if isKnown=TRUE then x() will be transfromed with supplied x_shift()
 'and x_scale(), and stype is ignored.
-Sub Normalize_x(x() As Double, x_shift() As Double, x_scale() As Double, _
+Sub Normalize_x(x As Variant, x_shift() As Double, x_scale() As Double, _
         Optional stype As String = "AVGSD", Optional isKnown As Boolean = False)
 Dim i As Long, j As Long, k As Long, n As Long, m As Long
 Dim n_raw As Long, n_dimension As Long
