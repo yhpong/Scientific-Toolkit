@@ -3199,6 +3199,60 @@ End Sub
 'Probability Distribution
 '========================================
 
+'Function for charting contour plot of 2D-Gaussian
+'Input: x_mean(1:2), vector of mean values
+'       x_covar(1:2,1:2), covariance matrix
+'       n_level, number of contours to displau
+'       n_sample, number of sample points along each contour
+'       show_p, if set to TRUE add a thrid column to the output showing probability density
+'Output: variant array of size (1:n_level*(n_sample+1)-1, 1:2)
+Function Gaussian_Contour(x_mean() As Double, x_covar() As Double, _
+    Optional n_level As Long = 5, Optional n_sample As Long = 60, Optional show_p As Boolean = False)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_dimension As Long
+Dim tmp_x As Double, tmp_y As Double
+Dim rho As Double, x_sd As Double, y_sd As Double
+Dim p_max As Double, norm As Double, p As Double
+Dim cs As Double, ss As Double, theta As Double
+Dim x_pos As Variant
+    If show_p = False Then
+        ReDim x_pos(1 To n_level * (n_sample + 1) - 1, 1 To 2)
+    Else
+        ReDim x_pos(1 To n_level * (n_sample + 1) - 1, 1 To 3)
+    End If
+    n_dimension = UBound(x_mean)
+    If n_dimension <> 2 Then
+        Debug.Print "Gaussian_Contour: Error: only works for 2D-plot."
+        Exit Function
+    End If
+    x_sd = Sqr(x_covar(1, 1))
+    y_sd = Sqr(x_covar(2, 2))
+    rho = x_covar(1, 2) / (x_sd * y_sd)
+    If Abs(rho) > 1 Then
+        Debug.Print "Gaussian_Contour: Error: covariance matrix is not positive definite."
+        Exit Function
+    End If
+    norm = 6.28318530717959 * x_sd * y_sd * Sqr(1 - rho ^ 2)
+    p_max = 1 / norm
+    m = 0
+    For k = 1 To n_level
+        p = p_max / (2 ^ k)
+        tmp_y = -2 * (1 - rho ^ 2) * Log(norm * p)
+        For i = 1 To n_sample
+            theta = (i - 1) * 6.28318530717959 / (n_sample - 1)
+            cs = VBA.Cos(theta)
+            ss = VBA.Sin(theta)
+            tmp_x = Sqr(tmp_y / (cs ^ 2 + ss ^ 2 - 2 * rho * cs * ss))
+            x_pos(m + i, 1) = tmp_x * cs * x_sd + x_mean(1)
+            x_pos(m + i, 2) = tmp_x * ss * y_sd + x_mean(2)
+            If show_p = True Then x_pos(m + i, 3) = p
+        Next i
+        m = m + n_sample + 1
+    Next k
+    Gaussian_Contour = x_pos
+    Erase x_pos
+End Function
+
+
 'Return the histogram for a 1-D array as probability density
 'Input: x(1 to N), 1-D array
 'Input: n_bin, desired number of bins
