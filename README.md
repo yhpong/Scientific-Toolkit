@@ -215,3 +215,28 @@ If we want to understand what makes Qatar an outlier, we can look at the PCA Bip
 There is no clear cut-off value on any of these scores to define an outlier. In fact, outlier scores can be distorted by outliers themselves. So it's important to use visualization techniques mentioned in the above sections, together with prior knowledge on the nature of the data to help determine how to handle the data properly.
 
 1. Linear-Time Outlier Detection via Sensitivity, Mario Lucic (2016)
+
+
+
+### Tree Map
+*Note: As of Excel 2016, Excel has its built-in TreeMap. So this module may be considered obsolete.*
+
+Requires: [cTreeMap.cls](Modules/cTreeMap.cls)
+
+![TreeMap_GDP](Screenshots/TreeMap_GDP.jpg)
+
+TreeMap is useful in visualizing relative sizes of data that has a hierarchical structure. In this example, we take the GDP of 47 major stock markets from [Worldbank](https://data.worldbank.org/), and manually construct a 3-tier hierarchical structure that groups the countries into Developed markets vs Emerging markets, then with smaller sub-regions down the levels.
+
+Inputs that are require to build a TreeMap include: x_name(1:47) a vector of country names, x_GDP(1:47) a vector of each country's GDP, x_Group(1:47,1:3) an array holding the group that each country belongs to in each of the three levels. The TreeMap can then be build with the following codes:
+```
+    Set cTree = New cTreeMap
+    With cTree
+        Call .Create_Multilevel(x_GDP, x_Group, 2, 1)  'Main command to create a 2:1 aspect TreeMap
+        vArr = .Draw_Pts               'Center points of each rectangle
+        vArr2 = .Draw_Lines            'border lines of each rectangle
+        vArr3 = .Draw_Lines_Group(2)   'border lines of 2nd level grouping, can be changed to 1,2 or 3 in this example
+        Call .Reset                    'release array memory from object
+    End With
+    Set cTree = Nothing
+```
+The arrays vArr, vArr2 and vArr2 can then be printed to an Excel spreadsheet and charted with x-y scatter plot, which gives you what's shown above. In the screenshot I showed both a 1:1 and a 2:1 aspect TreeMap, which will give you a slightly different arrangment of the tiles but essentially the same underlying structure. Alternatively you can also create a treemap wihtout any groupings using the method `.Create(x_GDP)`, which gives you the rightmost chart in the above screenshot.
