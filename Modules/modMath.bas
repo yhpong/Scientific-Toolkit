@@ -1963,6 +1963,47 @@ Dim x_tmp() As Double
 End Sub
 
 
+'Winsorize mutli-dimensional data x()
+'data with percentile scores outside threshold_upper and threshold_lower are replaced
+Sub Winsorize_x(x As Variant, Optional threshold_upper As Double = 0.95, Optional threshold_lower As Double = 0.05)
+Dim i As Long, j As Long, k As Long, n As Long
+Dim n_dimension As Long, i_min As Long, i_max As Long
+Dim tmp_vec() As Double, sort_idx() As Long
+Dim x_max As Double, x_min As Double
+    n = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    ReDim tmp_vec(1 To n)
+    For j = 1 To n_dimension
+        For i = 1 To n
+            tmp_vec(i) = x(i, j)
+        Next i
+        tmp_vec = PercentileScore(tmp_vec)
+        Call Sort_Quick_A(tmp_vec, 1, n, sort_idx)
+        For i = 1 To n
+            If tmp_vec(i) >= threshold_lower Then
+                i_min = i
+                x_min = x(sort_idx(i), j)
+                Exit For
+            End If
+        Next i
+        For i = n To 1 Step -1
+            If tmp_vec(i) <= threshold_upper Then
+                i_max = i
+                x_max = x(sort_idx(i), j)
+                Exit For
+            End If
+        Next i
+        For i = 1 To i_min
+            x(sort_idx(i), j) = x_min
+        Next i
+        For i = n To i_max Step -1
+            x(sort_idx(i), j) = x_max
+        Next i
+    Next j
+    Erase tmp_vec, sort_idx
+End Sub
+
+
 'Normalize mutli-dimensional data x() by a chosen scheme
 'Input: x(1 to n_raw,1 to dimension)
 'Original data can be recovered by x*x_scale+x_shift
