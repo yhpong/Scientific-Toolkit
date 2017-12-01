@@ -2740,17 +2740,31 @@ End Function
 'Convert a categorical vector x(1 to N) into binary matrix
 'Output: v(1 to N, 1 to n_class)
 'Output: class_map(1 to n_class)
-Sub Class2Vec(x As Variant, v As Variant, n_class As Long, class_map As Variant)
+Sub Class2Vec(x As Variant, v As Variant, n_class As Long, class_map As Variant, _
+    Optional mapIsKnown As Boolean = False)
 Dim i As Long, j As Long, m As Long, n As Long
 Dim record_count() As Long, x_idx() As Long
 Dim tmp_x As Variant
     n = UBound(x)
-    Call Unique_Items(x, x_idx, class_map, n_class, record_count, True)
-    ReDim v(1 To n, 1 To n_class)
-    For i = 1 To n
-        v(i, x_idx(i)) = 1
-    Next i
-    Erase record_count, x_idx
+    If mapIsKnown = False Then
+        Call Unique_Items(x, x_idx, class_map, n_class, record_count, True)
+        ReDim v(1 To n, 1 To n_class)
+        For i = 1 To n
+            v(i, x_idx(i)) = 1
+        Next i
+        Erase record_count, x_idx
+    ElseIf mapIsKnown = True Then
+        n_class = UBound(class_map, 1)
+        ReDim v(1 To n, 1 To n_class)
+        For i = 1 To n
+            For j = 1 To n_class
+                If x(i) = class_map(j) Then
+                    v(i, j) = 1
+                    Exit For
+                End If
+            Next j
+        Next i
+    End If
 End Sub
 
 'Convert binary matrix v() back to categorical vector x()
@@ -3230,6 +3244,96 @@ Dim FileContents As String
         For j = 1 To n_dimension
             x(i, j) = xArr(j)
         Next j
+    Next i
+    
+    Erase strArr, xArr
+    Application.StatusBar = False
+End Sub
+
+
+'=== Read selected range of lines text file
+Sub Read_csv_by_Line(strPath As String, x As Variant, _
+            Optional strDelimiter As String = ",", _
+            Optional first_row_is_header As Boolean = True, Optional x_labels As Variant, _
+            Optional first_col_is_label As Boolean = True, Optional y As Variant, _
+            Optional first_row As Long = 1, Optional n_line As Long = -1)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, vFF As Long
+Dim n_raw As Long, n_dimension As Long, i_start As Long, j_start As Long
+Dim strArr As Variant, xArr As Variant
+Dim strLine As String
+
+    vFF = VBA.FreeFile
+    Open strPath For Input As #vFF
+    i = 0
+    n_raw = 0
+    ReDim strArr(1 To 1)
+    Do Until VBA.EOF(vFF)
+        If i Mod 100 = 0 Then
+            DoEvents
+            Application.StatusBar = "Reading csv 1: " & i & "/" & n_raw
+        End If
+        Line Input #vFF, strLine
+        i = i + 1
+        If i >= first_row Then
+            n_raw = n_raw + 1
+            ReDim Preserve strArr(1 To n_raw)
+            strArr(n_raw) = strLine
+            If n_raw = n_line Then Exit Do
+        End If
+    Loop
+    Close #vFF
+    
+    If VBA.Len(strArr(n_raw)) = 0 Then n_raw = n_raw - 1 'delete last line if empty
+    If first_row_is_header = True Then
+        n_raw = n_raw - 1
+        i_start = 2
+    Else
+        i_start = 1
+    End If
+    
+    m = UBound(VBA.Split(strArr(i_start), strDelimiter), 1) + 1 '0-base vector
+    If first_col_is_label = True Then
+        n_dimension = m - 1
+        j_start = 1
+    Else
+        n_dimension = m
+        j_start = 0
+    End If
+    
+    'Read column headings
+    If IsMissing(x_labels) = False Then
+        ReDim x_labels(1 To n_dimension)
+        If first_row_is_header = True Then
+            xArr = VBA.Split(strArr(1), strDelimiter)   '0-base vector
+            For i = 1 To n_dimension
+                x_labels(i) = xArr(j_start + i - 1)
+            Next i
+        Else
+            For i = 1 To n_dimension
+                x_labels(i) = VBA.Format(i, "000")
+            Next i
+        End If
+    End If
+    
+    'Reading data
+    ReDim x(1 To n_raw, 1 To n_dimension)
+    If IsMissing(y) = False Then ReDim y(1 To n_raw)
+    For i = 1 To n_raw
+        If i Mod 100 = 0 Then
+            DoEvents
+            Application.StatusBar = "Reading csv 2: " & i & "/" & n_raw
+        End If
+        xArr = VBA.Split(strArr(i_start + i - 1), strDelimiter)
+        For j = 1 To n_dimension
+            x(i, j) = xArr(j_start + j - 1)
+        Next j
+        If IsMissing(y) = False Then
+            If first_col_is_label = True Then
+                y(i) = xArr(0)
+            Else
+                y(i) = i
+            End If
+        End If
     Next i
     
     Erase strArr, xArr
