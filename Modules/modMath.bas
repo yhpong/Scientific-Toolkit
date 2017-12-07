@@ -3455,7 +3455,7 @@ Dim likelihood As Double
     x_scale = 0
     x_asym = 0
     n = UBound(x, 1)
-    If UCase(fit_type) = "GAUSSIAN" Then
+    If VBA.UCase(fit_type) = "GAUSSIAN" Then
     
         For i = 1 To n
             x_loc = x_loc + x(i)
@@ -3465,7 +3465,7 @@ Dim likelihood As Double
         x_scale = x_scale / n - (x_loc ^ 2)
         likelihood = -(1 + Log(6.28318530717959 * x_scale)) / 2
         
-    ElseIf UCase(fit_type) = "LAPLACE" Then
+    ElseIf VBA.UCase(fit_type) = "LAPLACE" Then
     
         x_loc = fmedian(x)
         For i = 1 To n
@@ -3474,15 +3474,15 @@ Dim likelihood As Double
         x_scale = x_scale / n
         likelihood = -1 - Log(2 * x_scale)
         
-    ElseIf UCase(fit_type) = "ALD" Then
+    ElseIf VBA.UCase(fit_type) = "ALD" Then
     
         likelihood = ALD_Fit(x, x_loc, x_scale, x_asym)
 
-    ElseIf UCase(fit_type) = "AGD" Then
+    ElseIf VBA.UCase(fit_type) = "AGD" Then
     
         likelihood = AGD_Fit(x, x_loc, x_scale, x_asym)
     
-    ElseIf UCase(fit_type) = "CAUCHY" Then
+    ElseIf VBA.UCase(fit_type) = "CAUCHY" Then
         
         likelihood = Cauchy_Fit(x, x_loc, x_scale)
     
@@ -3518,87 +3518,77 @@ End Function
 'Asymetric Laplace Distribution:
 'returns the maximum likelihood estimates of (m,lambda, kappa)
 'returns the corresponding log likelihood
-Function ALD_Fit(x As Variant, m As Double, lambda As Double, kappa As Double) As Double
-Dim i As Long, iterate As Long, n As Long, N1 As Long, N2 As Long
-Dim x_A As Double, x_b As Double, f_a As Double, f_b As Double, tmp_x As Double
-Dim x_mean1 As Double, x_mean2 As Double, likelihood As Double
-Dim likelihood_best As Double, m_best As Double, lambda_best As Double, kappa_best As Double
+Function ALD_Fit(x As Variant, m As Double, lambda As Double, kappa As Double, Optional tol As Double = 0.00001) As Double
+Dim i As Long, j As Long, k As Long, iterate As Long, n As Long
+Dim x_A As Double, x_b As Double, x_c As Double, x_d As Double, f_a As Double, f_b As Double
+Dim tmp_x As Double, tmp_y As Double, z As Double, y_sum As Double
 Dim y() As Double
 
     n = UBound(x, 1)
     y = x
     Call Sort_Quick(y, 1, n)
-
-'    x_a = y(2)
-'    x_b = y(n - 1)
-'    f_a = ALD_Test_Root(x, x_a, n1, n2, x_mean1, x_mean2, kappa, lambda, likelihood)
-'    f_b = ALD_Test_Root(x, x_b, n1, n2, x_mean1, x_mean2, kappa, lambda, likelihood)
-    
-    For i = 1 To n \ 2
-        x_A = y(1 + i)
-        x_b = y(n - i)
-        f_a = ALD_Test_Root(x, x_A, N1, N2, x_mean1, x_mean2, kappa, lambda, likelihood)
-        f_b = ALD_Test_Root(x, x_b, N1, N2, x_mean1, x_mean2, kappa, lambda, likelihood)
-        If Sgn(f_a * f_b) = -1 Then Exit For
+    y_sum = 0
+    For i = 1 To n
+        y_sum = y_sum + y(i)
     Next i
-    Erase y
     
-    likelihood_best = -Exp(70)
+    j = 1
+    Do While y(j) = y(j + 1) And j < n
+        j = j + 1
+    Loop
+    k = n
+    Do While y(k) = y(k - 1) And k > 1
+        k = k - 1
+    Loop
+    
+    'Golden line search to find maximum likelihood
+    z = (Sqr(5) + 1) / 2
+    x_A = y(j + 1)
+    x_b = y(k - 1)
+    x_c = x_b - (x_b - x_A) / z
+    x_d = x_A + (x_b - x_A) / z
     For iterate = 1 To 5000
+        If Abs(x_d - x_c) / (Abs(x_c) / 2) < tol Then Exit For
+        tmp_x = ALD_likelihood_calc_m(y, x_c, kappa, lambda, y_sum)
+        tmp_y = ALD_likelihood_calc_m(y, x_d, kappa, lambda, y_sum)
         
-        m = (x_A + x_b) / 2
-        tmp_x = ALD_Test_Root(x, m, N1, N2, x_mean1, x_mean2, kappa, lambda, likelihood)
-        If likelihood > likelihood_best Then
-            likelihood_best = likelihood
-            m_best = m
-            kappa_best = kappa
-            lambda_best = lambda
+        If tmp_x > tmp_y Then
+            x_b = x_d
+        Else
+            x_A = x_c
         End If
-
-        If Abs(tmp_x) < 0.0000001 Then Exit For
-        If Sgn(tmp_x) = Sgn(f_a) Then
-            x_A = m
-            f_a = tmp_x
-        ElseIf Sgn(tmp_x) = Sgn(f_b) Then
-            x_b = m
-            f_b = tmp_x
-        End If
-        If Sgn(f_a) = Sgn(f_b) Or (x_b - x_A) / Abs((x_b + x_A) / 2) < 0.00001 Then Exit For
-
+        x_c = x_b - (x_b - x_A) / z
+        x_d = x_A + (x_b - x_A) / z
     Next iterate
-    m = m_best
-    kappa = kappa_best
-    lambda = lambda_best
-    ALD_Fit = likelihood_best
+        
+    m = (x_A + x_b) / 2
+    ALD_Fit = ALD_likelihood_calc_m(y, m, kappa, lambda, y_sum)
+    Erase y
 End Function
 
-Private Function ALD_Test_Root(x As Variant, x_root As Double, _
-    N1 As Long, N2 As Long, x_mean1 As Double, x_mean2 As Double, _
-    kappa As Double, lambda As Double, likelihood As Double) As Double
-Dim i As Long, n As Long
-Dim tmp_x As Double
+Private Function ALD_likelihood_calc_m(x As Variant, x_root As Double, _
+    kappa As Double, lambda As Double, x_sum As Double) As Double
+Dim i As Long, n As Long, N1 As Long, N2 As Long
+Dim x_sum1 As Double, x_sum2 As Double
     n = UBound(x)
     N1 = 0
-    N2 = 0
-    x_mean1 = 0
-    x_mean2 = 0
-    likelihood = 0
+    x_sum1 = 0
     For i = 1 To n
-        tmp_x = x(i) - x_root
-        If tmp_x < 0 Then
-            x_mean1 = x_mean1 + tmp_x
+        If x(i) < x_root Then
+            x_sum1 = x_sum1 + x(i)
             N1 = N1 + 1
-        ElseIf tmp_x >= 0 Then
-            x_mean2 = x_mean2 + tmp_x
-            N2 = N2 + 1
+        Else
+            Exit For
         End If
     Next i
-    x_mean1 = x_mean1 / N1
-    x_mean2 = x_mean2 / N2
-    ALD_Test_Root = (x_mean2 + x_mean1) / (x_mean2 - x_mean1) - (N2 - N1) * 1# / n
-    kappa = Sqr(N1 / N2)
-    lambda = (1 / (x_mean2 - x_mean1)) * n / Sqr(N1 * N2)
-    likelihood = -1 + Log(lambda / (kappa + 1 / kappa))
+    N2 = n - N1
+    x_sum2 = x_sum - x_sum1
+    x_sum1 = x_sum1 - N1 * x_root
+    x_sum2 = x_sum2 - N2 * x_root
+    kappa = Sqr(Sqr(-x_sum1 / x_sum2))
+    lambda = n / (x_sum2 * kappa - x_sum1 / kappa)
+    ALD_likelihood_calc_m = -1 + Log(lambda / (kappa + 1 / kappa))
+'    m_grad = (N2 * kappa - N1 / kappa) * lambda / n
 End Function
 
 
