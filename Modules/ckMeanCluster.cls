@@ -10,8 +10,10 @@ Attribute VB_Exposed = False
 Option Explicit
 '========================================
 'Requires: modMath , ckdTree
-'Perform k-Means clustering when distance type is "EUCLIDEAN".
-'k-Medians will be used if distance type is set to "MANHATTAN".
+'Perform k-Means clustering when distance type is "EUCLIDEAN". k-Medians will be
+'used if distance type is set to "MANHATTAN". When "CORREL" is used, mean is used
+'to calculate cluster centers and correlation is used to evalulate distance between
+'datapoints to clusters. kd-Tree in this case is assumed to be euclidean for simplicity.
 'When number of k is large, one may set usekdTree to TRUE to speed up NN search.
 '========================================
 
@@ -64,12 +66,23 @@ Sub kMean_Clustering(x() As Double, k As Long, Optional iterate_max As Long = 10
 Dim i As Long, j As Long, m As Long, n As Long, iterate As Long
 Dim tmp_x As Double, tmp_y As Double, tmp_min As Double
 Dim n_raw As Long, n_chg As Long
-Dim x_d2() As Double, xi() As Double, xj() As Double, iArr() As Long
-Dim x_seeds() As Long
+Dim x_d2() As Double, xi() As Double, xj() As Double
+Dim x_seeds() As Long, iArr() As Long
 Dim k1 As ckdTree
+Dim tree_type As String
 
     pk = k
     strType = VBA.UCase(strType)
+    If strType = "CORREL" Then
+        tree_type = "EUCLIDEAN"
+    ElseIf strType = "EUCLIDEAN" Then
+        tree_type = "EUCLIDEAN"
+    ElseIf strType = "MANHATTAN" Then
+        tree_type = "MANHATTAN"
+    Else
+        Debug.Print "ckMeanCluster:Invalid distance type."
+        End
+    End If
     n_raw = UBound(x, 1)
     pn_dimension = UBound(x, 2)
     'Initialization with k-means++ scheme
@@ -123,7 +136,7 @@ Dim k1 As ckdTree
                 xi(m) = x(i, m)
             Next m
             If usekdTree = True Then
-                n = k1.NN_Search(xi, pcluster_mean, strType)
+                n = k1.NN_Search(xi, pcluster_mean, tree_type)
             Else
                 tmp_min = pINFINITY
                 For j = 1 To pk
@@ -143,7 +156,7 @@ Dim k1 As ckdTree
             Exit For
         ElseIf n_chg > 0 Then
             ReDim pcluster_mean(1 To pk, 1 To pn_dimension)
-            If strType = "EUCLIDEAN" Then
+            If strType = "EUCLIDEAN" Or strType = "CORREL" Then
                 For i = 1 To n_raw
                     n = px_cluster(i)
                     For m = 1 To pn_dimension
@@ -207,7 +220,7 @@ Dim avg1 As Double, avg2 As Double, sd1 As Double, sd2 As Double
         avg2 = 0: sd2 = 0
         For d = 1 To pn_dimension
             avg1 = avg1 + x(i, d): sd1 = sd1 + x(i, d) ^ 2
-            avg2 = avg2 + x(j, d): sd1 = sd1 + x(i, d) ^ 2
+            avg2 = avg2 + x(j, d): sd2 = sd2 + x(j, d) ^ 2
         Next d
         avg1 = avg1 / pn_dimension
         avg2 = avg2 / pn_dimension
