@@ -116,7 +116,7 @@ In the sample above .Init is used to initialize a 9 by 10 grid, which is chosen 
 Only four out of thirteen attributes are shown above. On each chart, blue means high value in that attribute, red means low, and yellow/green is average. Wines from W1 are mostly placed on the upper-right portion of the grid, W3 on the upper-left, and W2 occupies the lower-half. Compare these to the biplot in the PCA section to see how they rhyme with each other.
 
 ### k-Means Clustering
-Requires: [ckMeanCluster.cls](Modules/ckMeanCluster.cls)
+Requires: [ckMeanCluster.cls](Modules/ckMeanCluster.cls), [ckdTree.cls](Modules/ckdTree.cls)
 
 So far the above methods only provide aids to see how the data may be sliced, and which attribute is more relevant in classification than the others. In contrast, k-Means clustering directly separate samples into pre-specified number of clusters.
 
