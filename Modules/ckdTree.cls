@@ -48,7 +48,7 @@ End Property
 
 
 '==========================================
-'Main sub used to Create k-d Tree from raw data x(1:N,1:D)
+'Main sub used to create k-d Tree from raw data x(1:N,1:D)
 '==========================================
 Sub Build_Tree(x As Variant, Optional min_size As Long = 1, Optional max_depth As Long = 500)
 Dim i As Long, j As Long, k As Long, n As Long
@@ -67,7 +67,7 @@ End Sub
 'Recursive step
 Sub z_Build_Tree_Recursive(x As Variant, idx() As Long, cur_depth As Long, _
         min_size As Long, max_depth As Long, n_dimension As Long, vparent As ckdTree)
-Dim i As Long, j As Long, k As Long, n As Long, n1 As Long, n2 As Long
+Dim i As Long, j As Long, k As Long, n As Long, N1 As Long, N2 As Long
 Dim idx1() As Long, idx2() As Long
 Dim xk() As Double
     n = UBound(idx)
@@ -92,30 +92,30 @@ Dim xk() As Double
     pSplitVal = xk(i)
     pPtr = idx(i)
 
-    n1 = 0: ReDim idx1(1 To n)
-    n2 = 0: ReDim idx2(1 To n)
+    N1 = 0: ReDim idx1(1 To n)
+    N2 = 0: ReDim idx2(1 To n)
     For i = 1 To n
         j = idx(i)
         If j <> pPtr Then
             If xk(i) < pSplitVal Then
-                n1 = n1 + 1
-                idx1(n1) = j
+                N1 = N1 + 1
+                idx1(N1) = j
             Else
-                n2 = n2 + 1
-                idx2(n2) = j
+                N2 = N2 + 1
+                idx2(N2) = j
             End If
         End If
     Next i
-    If n1 > 0 Then
-        ReDim Preserve idx1(1 To n1)
+    If N1 > 0 Then
+        ReDim Preserve idx1(1 To N1)
         Set pChild_L = New ckdTree
         Call pChild_L.z_Build_Tree_Recursive(x, idx1, cur_depth + 1, min_size, max_depth, n_dimension, Me)
     Else
         Set pChild_L = Nothing
     End If
 
-    If n2 > 0 Then
-        ReDim Preserve idx2(1 To n2)
+    If N2 > 0 Then
+        ReDim Preserve idx2(1 To N2)
         Set pChild_R = New ckdTree
         Call pChild_R.z_Build_Tree_Recursive(x, idx2, cur_depth + 1, min_size, max_depth, n_dimension, Me)
     Else
@@ -235,17 +235,17 @@ End Sub
 
 
 '===========================================================
-'Find k-nearest neighbours of target node. Different from NN_Search(), tgt here
-'is a member of x() itself. So tgt itself is excluded from the search. Use
-'after tree is built.
+'Find k-nearest neighbours of target node. Different from NN_Search(), tgt here is
+'a member of x(). So tgt itself is excluded from the search. Use after tree is built.
 'Input:  tgt, integer pointer of target data
 '        k_nearest, desired number of neighbors
 '        x(1:N,1:D), N observations of D-dimensional data
+'        allowTie, if set to TRUE, will allow more than K neighbors to return
 'Output: kNeighbor(1:K), integer pointers to nearest neighbors
 '        kDist(1:K), distance to the k-nearest neighbors
 '===========================================================
 Sub kNN_Search(tgt As Long, k_nearest As Long, x As Variant, kNeighbor() As Long, kDist() As Double, _
-        Optional dist_type As String = "EUCLIDEAN")
+        Optional dist_type As String = "EUCLIDEAN", Optional allowTie As Boolean = False)
 Dim i As Long, j As Long, k As Long, n As Long
 Dim v As ckdTree, u As ckdTree, vparent As ckdTree
 Dim vstack As Collection
@@ -260,7 +260,7 @@ Dim isVisited() As Long
     For i = 1 To k_nearest
         kDist(i) = INFINITY
     Next i
-    Call z_Add_to_Stack_kNN(tgt, x, vstack, isVisited, k_nearest, kNeighbor, kDist, dist_type)
+    Call z_Add_to_Stack_kNN(tgt, x, vstack, isVisited, k_nearest, kNeighbor, kDist, dist_type, allowTie)
     Do While vstack.Count > 0
         With vstack
             Set v = .Item(.Count)
@@ -270,15 +270,14 @@ Dim isVisited() As Long
         Set vparent = v.Parent
         With vparent
             j = .SplitDim
-            If Intersect_Chk(kDist(k_nearest), x(tgt, j), x(.ptr, j), dist_type) = True Then
-            'If kDist(k_nearest) >= ((x(tgt, j) - x(.ptr, j)) ^ 2) Then
+            If Intersect_Chk(kDist(UBound(kDist)), x(tgt, j), x(.ptr, j), dist_type) = True Then
                 Set u = .Child_L
                 If u Is v Then Set u = .Child_R
             End If
         End With
         If Not u Is Nothing Then
             If isVisited(u.ptr) = 0 Then
-                Call u.z_Add_to_Stack_kNN(tgt, x, vstack, isVisited, k_nearest, kNeighbor, kDist, dist_type)
+                Call u.z_Add_to_Stack_kNN(tgt, x, vstack, isVisited, k_nearest, kNeighbor, kDist, dist_type, allowTie)
             End If
         End If
     Loop
@@ -286,23 +285,24 @@ Dim isVisited() As Long
     Erase isVisited
     'Take square root of distance values
     If dist_type = "EUCLIDEAN" Then
-        For i = 1 To k_nearest
+        For i = 1 To UBound(kDist)
             kDist(i) = Sqr(kDist(i))
         Next i
     End If
 End Sub
 
+
 'Move down the tree until a leaf is reached, add each visited node to stack
 'Evaluate distance of each visited node and add to k-Nearest list if suitable
 Sub z_Add_to_Stack_kNN(tgt As Long, x As Variant, vstack As Collection, isVisited() As Long, _
-                    k_nearest As Long, kNeighbor() As Long, kDist() As Double, dist_type As String)
+                    k_nearest As Long, kNeighbor() As Long, kDist() As Double, dist_type As String, allowTie As Boolean)
     Dim u As ckdTree
     vstack.Add Me
-    'Make comparison only if it's not already compared or if its the target itself
+    'Make comparison only if it's not already compared or if its not the target itself
     If isVisited(pPtr) = 0 Then
         isVisited(pPtr) = 1
         If tgt <> pPtr Then
-            Call Queue_Eject(kNeighbor, kDist, Dist2Node(tgt, x, dist_type), pPtr, k_nearest, pPtr)
+            Call Queue_Eject(kNeighbor, kDist, Dist2Node(tgt, x, dist_type), pPtr, k_nearest, allowTie)
         End If
     End If
     If pisLeaf = 1 Then Exit Sub
@@ -313,26 +313,54 @@ Sub z_Add_to_Stack_kNN(tgt As Long, x As Variant, vstack As Collection, isVisite
         Set u = pChild_R
         If u Is Nothing Then Set u = pChild_L
     End If
-    Call u.z_Add_to_Stack_kNN(tgt, x, vstack, isVisited, k_nearest, kNeighbor, kDist, dist_type)
+    Call u.z_Add_to_Stack_kNN(tgt, x, vstack, isVisited, k_nearest, kNeighbor, kDist, dist_type, allowTie)
 End Sub
 
+
 'Remove point from kNN list if point v is closer than top of queue
-Private Sub Queue_Eject(kNeighbor() As Long, kDist() As Double, cur_dist As Double, v As Long, k As Long, ptr As Long)
-Dim i As Long, j As Long
-    If cur_dist < kDist(k) Then
-        For i = 1 To k
-            If cur_dist < kDist(i) Then
-                For j = k To i + 1 Step -1
-                    kDist(j) = kDist(j - 1)
-                    kNeighbor(j) = kNeighbor(j - 1)
-                Next j
-                kDist(i) = cur_dist
-                kNeighbor(i) = v
-                Exit For
+Private Sub Queue_Eject(kNeighbor() As Long, kDist() As Double, cur_dist As Double, v As Long, k As Long, Optional allowTie As Boolean = False)
+Dim i As Long, j As Long, n As Long
+    If allowTie = False Then
+        If cur_dist < kDist(k) Then
+            For i = 1 To k
+                If cur_dist < kDist(i) Then
+                    For j = k To i + 1 Step -1
+                        kDist(j) = kDist(j - 1)
+                        kNeighbor(j) = kNeighbor(j - 1)
+                    Next j
+                    kDist(i) = cur_dist
+                    kNeighbor(i) = v
+                    Exit For
+                End If
+            Next i
+        End If
+    Else
+        n = UBound(kDist)
+        If cur_dist <= kDist(n) Then
+            n = n + 1
+            ReDim Preserve kDist(1 To n)
+            ReDim Preserve kNeighbor(1 To n)
+            For i = 1 To n - 1
+                If cur_dist <= kDist(i) Then
+                    For j = n To i + 1 Step -1
+                        kDist(j) = kDist(j - 1)
+                        kNeighbor(j) = kNeighbor(j - 1)
+                    Next j
+                    kDist(i) = cur_dist
+                    kNeighbor(i) = v
+                    Exit For
+                End If
+            Next i
+            If n > k Then
+                If kDist(k + 1) > kDist(k) Then
+                    ReDim Preserve kDist(1 To k)
+                    ReDim Preserve kNeighbor(1 To k)
+                End If
             End If
-        Next i
+        End If
     End If
 End Sub
+
 
 'Find distance from a target node to current node, return is squared
 Private Function Dist2Node(tgt As Long, x As Variant, strType As String) As Double

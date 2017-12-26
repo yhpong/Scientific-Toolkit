@@ -30,7 +30,7 @@ Private Function Influence(x() As Double, Optional k_min As Long = 2, Optional k
 Dim i As Long, j As Long, m As Long, n As Long, k As Long, n_k As Long
 Dim tmp_x As Double, tmp_min As Double
 Dim n_raw As Long, bi As Long
-Dim alpha As Double, c_phi As Double
+Dim alpha As Double, c_phi As Double, INFINITY As Double
 Dim B_Set() As Long, B_Master() As Long
 Dim x2B() As Long
 Dim P_Dist() As Double
@@ -38,6 +38,7 @@ Dim P_Count() As Long
 Dim dist() As Double, min_dist() As Double
 Dim s() As Double, s_avg() As Double
 
+INFINITY = Exp(70)
 n_raw = UBound(x, 1)
 ReDim s(1 To n_raw, 1 To ((k_max - k_min) \ k_step + 1))
 ReDim B_Master(0 To 0)
@@ -49,10 +50,19 @@ ReDim P_Count(1 To k_max, 1 To k_max)
 Randomize
 k = Int(Rnd() * n_raw) + 1
 Call Append_1D(B_Master, k)
+ReDim P_Dist(1 To n_raw)
+For i = 1 To n_raw
+    dist(i) = INFINITY
+Next i
 For k = 1 To k_max
     tmp_x = 0
     For i = 1 To n_raw
-        dist(i) = Dist_n_B(i, B_Master, x, j)
+        If k > 1 Then
+            j = x2B(i, k - 1)
+        ElseIf k = 1 Then
+            j = 1
+        End If
+        Call Dist_n_B(i, B_Master, x, k, j, dist(i))
         x2B(i, k) = j
         min_dist(i, k) = dist(i)
         P_Count(j, k) = P_Count(j, k) + 1
@@ -60,13 +70,13 @@ For k = 1 To k_max
     Next i
     If k < k_max Then
         For i = 1 To n_raw
-            dist(i) = dist(i) / tmp_x
+            P_Dist(i) = dist(i) / tmp_x
         Next i
-        i = modMath.Random_Integer_Prob(dist)
+        i = modMath.Random_Integer_Prob(P_Dist)
         Call Append_1D(B_Master, i)
     End If
 Next k
-Erase dist
+Erase dist, P_Dist
 
 n_k = 0
 For k = k_min To k_max Step k_step
@@ -115,20 +125,14 @@ End Function
 
 'Find Euclidean distance between point n and set B() using minimum distance
 'x2B = the member of B that is closest to n
-Private Function Dist_n_B(n As Long, B() As Long, x() As Double, x2B As Long) As Double
-Dim i As Long
-Dim tmp_x As Double, tmp_min As Double
-    tmp_min = Dist_n_m(n, B(1), x)
-    x2B = 1
-    For i = 2 To UBound(B)
-        tmp_x = Dist_n_m(n, B(i), x)
-        If tmp_x < tmp_min Then
-            tmp_min = tmp_x
-            x2B = i
-        End If
-    Next i
-    Dist_n_B = tmp_min
-End Function
+Private Sub Dist_n_B(n As Long, B() As Long, x() As Double, n_seed As Long, x2B As Long, cur_dist As Double)
+Dim tmp_x As Double
+    tmp_x = Dist_n_m(n, B(n_seed), x)
+    If tmp_x < cur_dist Then
+        cur_dist = tmp_x
+        x2B = n_seed
+    End If
+End Sub
 
 'Find Euclidean distance between points n & m
 Private Function Dist_n_m(n As Long, m As Long, x() As Double) As Double
@@ -147,7 +151,7 @@ End Function
 Function MahalanobisDist(x() As Double) As Double()
 Dim i As Long, j As Long, m As Long, n As Long, k As Long
 Dim dimension As Long, n_raw As Long
-Dim x_avg As Double
+Dim x_avg As Double, tmp_x As Double
 Dim covar_m() As Double, x_centered() As Double, MD() As Double
     DoEvents
     Application.StatusBar = "Calculating Mahalanobis Distance..."
@@ -165,7 +169,7 @@ Dim covar_m() As Double, x_centered() As Double, MD() As Double
         x_avg = x_avg / n_raw
         For i = 1 To n_raw
             x_centered(i, m) = x(i, m) - x_avg
-            covar_m(m, m) = covar_m(m, m) + x_centered(i, m) * x_centered(i, m)
+            covar_m(m, m) = covar_m(m, m) + x_centered(i, m) ^ 2
         Next i
         covar_m(m, m) = covar_m(m, m) / (n_raw - 1)
     Next m
@@ -184,12 +188,15 @@ Dim covar_m() As Double, x_centered() As Double, MD() As Double
     
     'Calculate Mahalanobis Distance
     ReDim MD(1 To n_raw)
+    For n = 1 To dimension
+        For m = 1 To dimension
+            tmp_x = covar_m(n, m)
+            For i = 1 To n_raw
+                MD(i) = MD(i) + x_centered(i, n) * x_centered(i, m) * tmp_x
+            Next i
+        Next m
+    Next n
     For i = 1 To n_raw
-        For n = 1 To dimension
-            For m = 1 To dimension
-                MD(i) = MD(i) + x_centered(i, n) * covar_m(n, m) * x_centered(i, m)
-            Next m
-        Next n
         MD(i) = Sqr(MD(i))
     Next i
     MahalanobisDist = MD
@@ -204,20 +211,22 @@ End Function
 Function KthNeighborDist(x() As Double, Optional k As Long = 10, Optional usekdtree As Boolean = False) As Double()
 Dim i As Long, j As Long, n As Long, n_raw As Long
 Dim neighbor_dist() As Double, neighbor() As Long
-Dim dist() As Double
-Dim Dk() As Double
-
+Dim dist() As Double, Dk() As Double
+Dim kT1 As ckdTree
+    DoEvents
+    Application.StatusBar = "Calculating k-th Nearest Neighbor..."
+    
     If usekdtree = True Then
-        Call mkdTree.kNN_All(neighbor, dist, x, k, 1)
+        Set kT1 = New ckdTree
+        Call kT1.kNN_All(neighbor, dist, x, k, 1, "EUCLIDEAN")
         KthNeighborDist = dist
         Erase neighbor, dist
+        Set kT1 = Nothing
         Exit Function
     End If
 
-    DoEvents
-    Application.StatusBar = "Calculating k-th Nearest Neighbor..."
     n_raw = UBound(x, 1)
-    dist = modMath.Calc_Euclidean_Dist(x, True)
+    dist = modMath.Calc_Euclidean_Dist(x, False)
     ReDim Dk(1 To n_raw)
     ReDim neighbor_dist(1 To n_raw - 1)
     ReDim neighbor(1 To n_raw - 1)
@@ -231,7 +240,7 @@ Dim Dk() As Double
             End If
         Next j
         Call modMath.Sort_Quick_A(neighbor_dist, 1, n_raw - 1, neighbor, 0)
-        Dk(i) = neighbor_dist(k)
+        Dk(i) = Sqr(neighbor_dist(k))
     Next i
     KthNeighborDist = Dk
     Erase dist, neighbor_dist, neighbor, Dk
@@ -239,26 +248,85 @@ Dim Dk() As Double
 End Function
 
 
-'=== Find Local Outlier Factors
-'Input: feature vectors x(1 to n_raw,1 to dimension), and number of neighbors k
-'Output: LOF(1 to n_raw)
+'=== Find Local Outlier Factors, using k-d tree to speed up search
+'Input:  feature vectors x(1:N,1:D), and number of neighbors k
+'Output: LOF(1:N)
 Function LOF(x() As Double, Optional k As Long = 5) As Double()
+Dim i As Long, j As Long, m As Long, n As Long, n_raw As Long, v As Long
+Dim tmp_x As Double, tmp_y As Double
+Dim kDist() As Double, Dk() As Double, kDists As Variant
+Dim kNeighbor() As Long, kNeighbors As Variant
+Dim LRD() As Double, LOF_Output() As Double
+Dim kT1 As ckdTree
+    DoEvents
+    Application.StatusBar = "Calculating Local Outlier Factor..."
+    
+    n_raw = UBound(x, 1)
+    
+    Set kT1 = New ckdTree
+    With kT1
+        Call .Build_Tree(x)
+        ReDim kNeighbors(1 To n_raw) 'list of k-neighbors
+        ReDim kDists(1 To n_raw)     'Distances to the k neighbors
+        ReDim Dk(1 To n_raw)         'Distance to the k-th neighbor
+        For i = 1 To n_raw
+            Call .kNN_Search(i, k, x, kNeighbor, kDist, "EUCLIDEAN", True)
+            kNeighbors(i) = kNeighbor
+            kDists(i) = kDist
+            Dk(i) = kDist(UBound(kDist, 1))
+        Next i
+    End With
+    
+    ReDim LRD(1 To n_raw)
+    For i = 1 To n_raw
+        tmp_y = 0
+        kNeighbor = kNeighbors(i)
+        kDist = kDists(i)
+        For j = 1 To UBound(kNeighbor, 1)
+            v = kNeighbor(j)
+            tmp_x = kDist(j)
+            If Dk(v) > tmp_x Then tmp_x = Dk(v)
+            tmp_y = tmp_y + tmp_x
+        Next j
+        LRD(i) = UBound(kNeighbor) / tmp_y
+    Next i
+    Erase Dk, kDist, kDists
+
+    ReDim LOF_Output(1 To n_raw)
+    For i = 1 To n_raw
+        tmp_x = 0
+        kNeighbor = kNeighbors(i)
+        For j = 1 To UBound(kNeighbor)
+            tmp_x = tmp_x + LRD(kNeighbor(j))
+        Next j
+        LOF_Output(i) = tmp_x / (LRD(i) * UBound(kNeighbor))
+    Next i
+    
+    LOF = LOF_Output
+    Erase kNeighbors, LRD, LOF_Output
+    Application.StatusBar = False
+End Function
+
+
+
+'Directly calculate LOF with brute force
+Function LOF_Direct(x() As Double, Optional k As Long = 5) As Double()
 Dim i As Long, j As Long, m As Long, n As Long, n_raw As Long
 Dim tmp_x As Double
 Dim neighbor_dist() As Double, neighbor() As Long
 Dim dist() As Double, Dk() As Double
 Dim kNeighbors() As Long
 Dim ReachDist() As Double, LRD() As Double, LOF_Output() As Double
-    
+
     DoEvents
     Application.StatusBar = "Calculating Local Outlier Factor..."
-    
+
     n_raw = UBound(x, 1)
     dist = modMath.Calc_Euclidean_Dist(x, True)
-    
+
     ReDim Dk(1 To n_raw)    'Distance to k-th neighbor
     ReDim kNeighbors(1 To n_raw, 1 To n_raw) 'neighbors that are as near as the k-th neighbor
-    
+
     ReDim neighbor_dist(1 To n_raw - 1)
     ReDim neighbor(1 To n_raw - 1)
     For i = 1 To n_raw
@@ -278,9 +346,9 @@ Dim ReachDist() As Double, LRD() As Double, LOF_Output() As Double
             j = j + 1
         Loop
     Next i
-    
+
     Erase neighbor_dist, neighbor
-    
+
     ReDim ReachDist(1 To n_raw, 1 To n_raw)
     For i = 1 To n_raw
         For j = 1 To n_raw
@@ -293,7 +361,8 @@ Dim ReachDist() As Double, LRD() As Double, LOF_Output() As Double
             End If
         Next j
     Next i
-    
+    Erase Dk
+
     ReDim LRD(1 To n_raw)
     For i = 1 To n_raw
         j = 1
@@ -304,7 +373,7 @@ Dim ReachDist() As Double, LRD() As Double, LOF_Output() As Double
         LRD(i) = (j - 1) / LRD(i)
     Next i
     Erase ReachDist
-    
+
     ReDim LOF_Output(1 To n_raw)
     For i = 1 To n_raw
         j = 1
@@ -315,9 +384,9 @@ Dim ReachDist() As Double, LRD() As Double, LOF_Output() As Double
         Loop
         LOF_Output(i) = tmp_x / (LRD(i) * (j - 1))
     Next i
-    
-    LOF = LOF_Output
-    Erase Dk, kNeighbors, LRD
+
+    LOF_Direct = LOF_Output
+    Erase kNeighbors, LRD
     Application.StatusBar = False
 End Function
 
