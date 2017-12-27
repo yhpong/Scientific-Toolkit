@@ -2333,23 +2333,22 @@ End Sub
 'Metrics
 '================================================
 
-'Input: x(1 to N, 1 to D), N x D-dimenisonal data
-'Input: sqroot, true if square root needs to be applied
-'Output: Dist(1 to N, 1 to N), N X N pairwise Euclidean distance
+'Input:  x(1:N,1:D), N x D-dimensional data
+'        sqroot, true if square root needs to be applied
+'Output: Dist(1:N,1:N), N X N pairwise Euclidean distance
 Function Calc_Euclidean_Dist(x As Variant, Optional sqroot As Boolean = False) As Double()
-Dim i As Long, j As Long, k As Long, m As Long, n As Long
-Dim tmp_x As Double, tmp_y As Double
-Dim n_raw As Long, n_dimension As Long
+Dim i As Long, j As Long, k As Long, n As Long, n_dimension As Long
+Dim tmp_x As Double
 Dim dist() As Double, x1() As Double
-    n_raw = UBound(x, 1)
+    n = UBound(x, 1)
     n_dimension = UBound(x, 2)
-    ReDim dist(1 To n_raw, 1 To n_raw)
+    ReDim dist(1 To n, 1 To n)
     ReDim x1(1 To n_dimension)
-    For i = 1 To n_raw - 1
+    For i = 1 To n - 1
         For k = 1 To n_dimension
             x1(k) = x(i, k)
         Next k
-        For j = i + 1 To n_raw
+        For j = i + 1 To n
             tmp_x = 0
             For k = 1 To n_dimension
                 tmp_x = tmp_x + (x1(k) - x(j, k)) ^ 2
@@ -2358,14 +2357,14 @@ Dim dist() As Double, x1() As Double
         Next j
     Next i
     If sqroot = True Then
-        For i = 1 To n_raw - 1
-            For j = i + 1 To n_raw
+        For i = 1 To n - 1
+            For j = i + 1 To n
                 dist(i, j) = Sqr(dist(i, j))
             Next j
         Next i
     End If
-    For i = 1 To n_raw - 1
-        For j = i + 1 To n_raw
+    For i = 1 To n - 1
+        For j = i + 1 To n
             dist(j, i) = dist(i, j)
         Next j
     Next i
@@ -2373,6 +2372,32 @@ Dim dist() As Double, x1() As Double
     Erase x1, dist
 End Function
 
+'Input:  x(1:N,1:D), N x D-dimensional data
+'Output: Dist(1:N,1:N), N X N pairwise distance
+Function Calc_Manhattan_Dist(x As Variant) As Double()
+Dim i As Long, j As Long, k As Long, n As Long, n_dimension As Long
+Dim tmp_x As Double
+Dim dist() As Double, x1() As Double
+    n = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    ReDim dist(1 To n, 1 To n)
+    ReDim x1(1 To n_dimension)
+    For i = 1 To (n - 1)
+        For k = 1 To n_dimension
+            x1(k) = x(i, k)
+        Next k
+        For j = i + 1 To n
+            tmp_x = 0
+            For k = 1 To n_dimension
+                tmp_x = tmp_x + Abs(x1(k) - x(j, k))
+            Next k
+            dist(i, j) = tmp_x
+            dist(j, i) = dist(i, j)
+        Next j
+    Next i
+    Calc_Manhattan_Dist = dist
+    Erase x1, dist
+End Function
 
 'Input: x(1 to n_raw, 1 to Dimension), n_raw is the number of observations
 'Output: Covar() is the Dimension X Dimension covariance matrix
