@@ -146,8 +146,8 @@ End Function
 
 
 '=== Compute Mahalanobis Distance
-'Input: x(1 to n_raw,1 to dimension)
-'Output: MD(1 to n_raw)
+'Input:  x(1:N,1:D), N by D data array
+'Output: MD(1:N)
 Function MahalanobisDist(x() As Double) As Double()
 Dim i As Long, j As Long, m As Long, n As Long, k As Long
 Dim dimension As Long, n_raw As Long
@@ -159,7 +159,7 @@ Dim covar_m() As Double, x_centered() As Double, MD() As Double
     dimension = UBound(x, 2)
     ReDim covar_m(1 To dimension, 1 To dimension)
     ReDim x_centered(1 To n_raw, 1 To dimension)
-     
+
     'Calculate covariance matrix and Center each dimension to mean zero
     For m = 1 To dimension
         x_avg = 0
@@ -175,11 +175,12 @@ Dim covar_m() As Double, x_centered() As Double, MD() As Double
     Next m
     For m = 1 To dimension - 1
         For n = m + 1 To dimension
+            tmp_x = 0
             For i = 1 To n_raw
-                covar_m(m, n) = covar_m(m, n) + x_centered(i, m) * x_centered(i, n)
+                tmp_x = tmp_x + x_centered(i, m) * x_centered(i, n)
             Next i
-            covar_m(m, n) = covar_m(m, n) / (n_raw - 1)
-            covar_m(n, m) = covar_m(m, n)
+            covar_m(n, m) = tmp_x / (n_raw - 1)
+            covar_m(m, n) = covar_m(n, m)
         Next n
     Next m
     
@@ -188,13 +189,19 @@ Dim covar_m() As Double, x_centered() As Double, MD() As Double
     
     'Calculate Mahalanobis Distance
     ReDim MD(1 To n_raw)
-    For n = 1 To dimension
-        For m = 1 To dimension
-            tmp_x = covar_m(n, m)
+    For n = 1 To dimension - 1
+        For m = n + 1 To dimension
+            tmp_x = 2 * covar_m(m, n)
             For i = 1 To n_raw
                 MD(i) = MD(i) + x_centered(i, n) * x_centered(i, m) * tmp_x
             Next i
         Next m
+    Next n
+    For n = 1 To dimension
+        tmp_x = covar_m(n, n)
+        For i = 1 To n_raw
+            MD(i) = MD(i) + (x_centered(i, n) ^ 2) * tmp_x
+        Next i
     Next n
     For i = 1 To n_raw
         MD(i) = Sqr(MD(i))
@@ -206,19 +213,25 @@ End Function
 
 
 '=== Find Distance to K-th Nearest Neighbor
-'Input: feature vectors x(1 to n_raw,1 to dimension), and target number of neighbors k
-'Output Dk(1 to n_raw)
-Function KthNeighborDist(x() As Double, Optional k As Long = 10, Optional usekdtree As Boolean = False) As Double()
+'Input:  x(1:N,1:D), N by D data array
+'        k, number of neighbors
+'        usekdTree, use k-d Tree to speed up nearest neighbor seach when set to TRUE
+'        dis_type, "EUCLIDEAN" or 'MANHATTAN"
+'Output: KthNeighborDist(1:N), real vector of k-th neighbor distance for each data point
+Function KthNeighborDist(x() As Double, Optional k As Long = 10, Optional usekdtree As Boolean = False, _
+            Optional dist_type As String = "EUCLIDEAN") As Double()
 Dim i As Long, j As Long, n As Long, n_raw As Long
 Dim neighbor_dist() As Double, neighbor() As Long
 Dim dist() As Double, Dk() As Double
 Dim kT1 As ckdTree
+Dim strType As String
     DoEvents
     Application.StatusBar = "Calculating k-th Nearest Neighbor..."
+    strType = VBA.UCase(dist_type)
     
     If usekdtree = True Then
         Set kT1 = New ckdTree
-        Call kT1.kNN_All(neighbor, dist, x, k, 1, "EUCLIDEAN")
+        Call kT1.kNN_All(neighbor, dist, x, k, 1, strType)
         KthNeighborDist = dist
         Erase neighbor, dist
         Set kT1 = Nothing
@@ -226,7 +239,14 @@ Dim kT1 As ckdTree
     End If
 
     n_raw = UBound(x, 1)
-    dist = modMath.Calc_Euclidean_Dist(x, False)
+    If strType = "EUCLIDEAN" Then
+        dist = modMath.Calc_Euclidean_Dist(x, False)
+    ElseIf strType = "MANHATTAN" Then
+        dist = modMath.Calc_Manhattan_Dist(x)
+    Else
+        Debug.Print "mOutliers:KthNeighborDist:Invalid metric " & dist_type
+        Exit Function
+    End If
     ReDim Dk(1 To n_raw)
     ReDim neighbor_dist(1 To n_raw - 1)
     ReDim neighbor(1 To n_raw - 1)
@@ -240,8 +260,13 @@ Dim kT1 As ckdTree
             End If
         Next j
         Call modMath.Sort_Quick_A(neighbor_dist, 1, n_raw - 1, neighbor, 0)
-        Dk(i) = Sqr(neighbor_dist(k))
+        Dk(i) = neighbor_dist(k)
     Next i
+    If strType = "EUCLIDEAN" Then
+        For i = 1 To n_raw
+            Dk(i) = Sqr(Dk(i))
+        Next i
+    End If
     KthNeighborDist = Dk
     Erase dist, neighbor_dist, neighbor, Dk
     Application.StatusBar = False
@@ -399,3 +424,96 @@ Dim m As Long, n As Long
     ReDim Preserve x(m To n)
     x(n) = i
 End Sub
+
+
+'=== Consistent data selection
+'"Outlier Detection by Consistent Data Selection Method", Utkarsh Porwal et al (Dec 2017)
+Function ConsistentData(x() As Double, Optional iter_max As Long = 3, _
+        Optional dist_type As String = "EUCLIDEAN", Optional kList As Variant) As Double()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, p As Long, n1 As Long, n2 As Long
+Dim ii As Long, jj As Long, kk As Long, iterate As Long, n_dimension As Long, n_k As Long
+Dim tmp_x As Double, tmp_y As Double, tmp_z As Double
+Dim kC1 As ckMeanCluster
+Dim x1s As Variant, centroids As Variant, n1s As Variant, cmags As Variant
+Dim c1() As Double, c2() As Double, cmag() As Double
+Dim OutScore() As Double
+Dim strType As String
+    n = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    
+    strType = VBA.UCase(dist_type)
+    If IsMissing(kList) = False Then
+        n_k = UBound(kList)
+    Else
+        n_k = 10
+        ReDim kList(1 To n_k)
+        For kk = 1 To n_k
+            kList(kk) = 5 * (2 ^ (kk - 1))
+            If kList(kk) > Int(n * 0.75) Then
+                n_k = kk - 1
+                ReDim Preserve kList(1 To n_k)
+                Exit For
+            End If
+        Next kk
+    End If
+    
+    i = 0
+    ReDim x1s(1 To n_k * iter_max)
+    ReDim n1s(1 To n_k * iter_max)
+    ReDim cmags(1 To n_k * iter_max)
+    ReDim centroids(1 To n_k * iter_max)
+    For kk = 1 To n_k
+        DoEvents: Application.StatusBar = "ConsistentData:Step1: " & kk & "/" & n_k
+        k = kList(kk)
+        For iterate = 1 To iter_max
+            i = i + 1
+            Set kC1 = New ckMeanCluster
+            With kC1
+                If k < 50 Then
+                    Call .kMean_Clustering(x, k, , strType, usekdtree:=False)
+                Else
+                    Call .kMean_Clustering(x, k, , strType, usekdtree:=True)
+                End If
+                x1s(i) = .x_cluster
+                n1s(i) = .cluster_size
+                c1 = .cluster_mean
+                ReDim cmag(1 To k)
+                For m = 1 To n_dimension
+                    For j = 1 To k
+                        cmag(j) = cmag(j) + c1(j, m) ^ 2
+                    Next j
+                Next m
+                cmags(i) = cmag
+                centroids(i) = c1
+                Call .Reset
+            End With
+            Set kC1 = Nothing
+        Next iterate
+    Next kk
+    
+    ReDim OutScore(1 To n)
+    For m = 1 To n
+        If m Mod 500 = 0 Then
+            DoEvents: Application.StatusBar = "ConsistentData:Step2 " & m & "/" & n
+        End If
+        p = 0
+        For i = 1 To (n_k * iter_max - 1)
+            ii = x1s(i)(m): n1 = n1s(i)(ii): tmp_x = cmags(i)(ii)
+            c1 = centroids(i)
+            For j = i + 1 To (n_k * iter_max)
+                jj = x1s(j)(m): n2 = n1s(j)(jj): tmp_y = cmags(j)(jj)
+                c2 = centroids(j)
+                tmp_z = 0
+                For k = 1 To n_dimension
+                    tmp_z = tmp_z + c1(ii, k) * c2(jj, k)
+                Next k
+                OutScore(m) = OutScore(m) + (n1 + n2) * tmp_z / Sqr(tmp_x * tmp_y)
+                p = p + (n1 + n2)
+            Next j
+        Next i
+        OutScore(m) = 1 - OutScore(m) / p
+    Next m
+    ConsistentData = OutScore
+    Erase x1s, n1s, cmags, c1, c2, OutScore
+    Application.StatusBar = False
+End Function
