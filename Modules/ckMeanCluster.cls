@@ -9,7 +9,8 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Explicit
 '========================================
-'Requires: modMath , ckdTree
+'Requires: modMath, ckdTree
+'========================================
 'Perform k-Means clustering when distance type is "EUCLIDEAN". k-Medians will be
 'used if distance type is set to "MANHATTAN". When "CORREL" is used, mean is used
 'to calculate cluster centers and correlation is used to evalulate distance between
@@ -60,12 +61,12 @@ End Sub
 'Output: x_cluster(1:N), cluster index of each data point, integer vector
 '        cluster_mean(1:k, 1:D), storing centers of each cluster, real array
 '        cluster_size(1:k),number of points assigned to each cluster, integer vector
-Sub kMean_Clustering(x() As Double, k As Long, Optional iterate_max As Long = 100, _
+Sub kMean_Clustering(x() As Double, k As Long, Optional iter_max As Long = 100, _
         Optional strType As String = "EUCLIDEAN", _
-        Optional usekdTree As Boolean = False)
-Dim i As Long, j As Long, m As Long, n As Long, iterate As Long
+        Optional usekdtree As Boolean = False)
+Dim i As Long, j As Long, m As Long, n As Long, p As Long, iterate As Long
 Dim tmp_x As Double, tmp_y As Double, tmp_min As Double
-Dim n_raw As Long, n_chg As Long
+Dim n_raw As Long, n_chg As Long, cluster_reset As Long
 Dim x_d2() As Double, xi() As Double, xj() As Double
 Dim x_seeds() As Long, iArr() As Long
 Dim k1 As ckdTree
@@ -85,11 +86,11 @@ Dim tree_type As String
     End If
     n_raw = UBound(x, 1)
     pn_dimension = UBound(x, 2)
-    'Initialization with k-means++ scheme
+    '=== Initialization with k-means++ scheme
     Randomize
-    ReDim x_seeds(1 To pk)
-    ReDim x_d2(1 To n_raw)
-    ReDim xi(1 To n_raw)
+    ReDim x_seeds(1 To pk)  'mark datapoints chosen as seeds
+    ReDim x_d2(1 To n_raw)  'distances from datapoints to closest seeds
+    ReDim xi(1 To n_raw)    'cumulative probability of datapoints to be chosen
     For i = 1 To n_raw
         x_d2(i) = pINFINITY
     Next i
@@ -113,19 +114,18 @@ Dim tree_type As String
         Next n
     Next m
     Erase xi, x_d2, x_seeds
-    '=========================================
     
     '=== Iterate until convergence
     n_chg = 0
     ReDim px_cluster(1 To n_raw)
-    ReDim pcluster_size(1 To pk)
     ReDim xi(1 To pn_dimension)
-    For iterate = 1 To iterate_max
+    'ReDim x_d2(1 To n_raw)
+    For iterate = 1 To iter_max
         If iterate Mod 5 = 0 Then
-            DoEvents: Application.StatusBar = "k-Means Clustering: " & iterate & "/" & iterate_max
+            DoEvents: Application.StatusBar = "k-Means Clustering: " & iterate & "/" & iter_max
         End If
         'Prepare k-d Tree to speed up search
-        If usekdTree = True Then
+        If usekdtree = True Then
             Set k1 = New ckdTree
             Call k1.Build_Tree(pcluster_mean)
         End If
@@ -135,8 +135,9 @@ Dim tree_type As String
             For m = 1 To pn_dimension
                 xi(m) = x(i, m)
             Next m
-            If usekdTree = True Then
+            If usekdtree = True Then
                 n = k1.NN_Search(xi, pcluster_mean, tree_type)
+                'x_d2(i) = Dist2Center(xi, n, strType)
             Else
                 tmp_min = pINFINITY
                 For j = 1 To pk
@@ -146,51 +147,82 @@ Dim tree_type As String
                         n = j
                     End If
                 Next j
+                'x_d2(i) = tmp_min
             End If
             n_chg = n_chg + Abs(n - px_cluster(i))
             px_cluster(i) = n
             pcluster_size(n) = pcluster_size(n) + 1
         Next i
         
-        If n_chg = 0 Then
-            Exit For
-        ElseIf n_chg > 0 Then
-            ReDim pcluster_mean(1 To pk, 1 To pn_dimension)
-            If strType = "EUCLIDEAN" Or strType = "CORREL" Then
+        'If there are centroids without any members, set them to be
+        'datapoints that are furthest from existing clusters.
+        cluster_reset = 0
+        For n = 1 To pk
+            If pcluster_size(n) = 0 Then
+                Debug.Print "kMeanCluster: centroid with no membership. Consider reducing k."
+                cluster_reset = 1
+                tmp_y = -pINFINITY
                 For i = 1 To n_raw
-                    n = px_cluster(i)
                     For m = 1 To pn_dimension
-                        pcluster_mean(n, m) = pcluster_mean(n, m) + x(i, m)
+                        xi(m) = x(i, m)
                     Next m
+                    tmp_x = Dist2Center(xi, px_cluster(i), strType)
+                    If tmp_x > tmp_y Then
+                        tmp_y = tmp_x
+                        j = i
+                    End If
                 Next i
+                px_cluster(j) = n
                 For m = 1 To pn_dimension
-                    For n = 1 To pk
-                        pcluster_mean(n, m) = pcluster_mean(n, m) / pcluster_size(n)
-                    Next n
+                    pcluster_mean(n, m) = x(j, m)
                 Next m
-            ElseIf strType = "MANHATTAN" Then
-                For n = 1 To k
-                    m = 0
-                    ReDim iArr(1 To pcluster_size(n))
-                    For i = 1 To n_raw
-                        If px_cluster(i) = n Then
-                            m = m + 1
-                            iArr(m) = i
-                        End If
-                    Next i
-                    For j = 1 To pn_dimension
-                        Call modMath.Filter_Array(x, xj, iArr, j)
-                        pcluster_mean(n, j) = modMath.fmedian(xj)
-                    Next j
-                Next n
-            Else
-                Debug.Print "ckMeanCluster:Invalid distance type."
-                End
             End If
-            n_chg = 0
+        Next n
+        
+        If cluster_reset = 0 Then
+            If n_chg = 0 Then
+                Exit For
+            ElseIf n_chg > 0 Then
+                ReDim pcluster_mean(1 To pk, 1 To pn_dimension)
+                If strType = "EUCLIDEAN" Or strType = "CORREL" Then
+                    For i = 1 To n_raw
+                        n = px_cluster(i)
+                        For m = 1 To pn_dimension
+                            pcluster_mean(n, m) = pcluster_mean(n, m) + x(i, m)
+                        Next m
+                    Next i
+                    For m = 1 To pn_dimension
+                        For n = 1 To pk
+                            pcluster_mean(n, m) = pcluster_mean(n, m) / pcluster_size(n)
+                        Next n
+                    Next m
+                ElseIf strType = "MANHATTAN" Then
+                    For n = 1 To pk
+                        m = 0
+                        ReDim iArr(1 To pcluster_size(n))
+                        For i = 1 To n_raw
+                            If px_cluster(i) = n Then
+                                m = m + 1
+                                iArr(m) = i
+                            End If
+                        Next i
+                        For j = 1 To pn_dimension
+                            Call modMath.Filter_Array(x, xj, iArr, j)
+                            pcluster_mean(n, j) = modMath.fmedian(xj)
+                        Next j
+                    Next n
+                Else
+                    Debug.Print "ckMeanCluster:Invalid distance type."
+                    End
+                End If
+                n_chg = 0
+            End If
         End If
     Next iterate
     '=========================================
+    If iterate >= iter_max Then
+        Debug.Print "ckMeanCluster: Fail to converge in " & iter_max & " steps."
+    End If
     Application.StatusBar = False
 End Sub
 
