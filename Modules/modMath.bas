@@ -2146,21 +2146,50 @@ Dim tmp_x As Double, tmp_y As Double
 End Sub
 
 
+'Transform x() by x <- sgn(x)*log(|x|+1)
+Sub Transform_log1p(x() As Double)
+Dim i As Long, j As Long, k As Long, n As Long, n_dimension As Long
+    n = UBound(x, 1)
+    k = modMath.getDimension(x)
+    If k = 2 Then
+        n_dimension = UBound(x, 2)
+        For j = 1 To n_dimension
+            For i = 1 To n
+                x(i, j) = Sgn(x(i, j)) * Log(Abs(x(i, j)) + 1)
+            Next i
+        Next j
+    ElseIf k = 1 Then
+        For i = 1 To n
+            x(i) = Sgn(x(i)) * Log(Abs(x(i)) + 1)
+        Next i
+    End If
+End Sub
+
+
 'Squash x to a range of [0,1] using 1/(1+exp(-x/x_scale))
 'smaller x_scale gives more squeezing
 'Input: x(1 to n_raw,1 to dimension)
 Sub Squash_x(x() As Double, Optional x_scale As Double = 1)
 Dim i As Long, k As Long
 Dim n_raw As Long, n_dimension As Long
+Dim tmp_x As Double
     n_raw = UBound(x, 1)
     n_dimension = UBound(x, 2)
     For k = 1 To n_dimension
         For i = 1 To n_raw
-            x(i, k) = 1# / (1 + Exp(-x(i, k) / x_scale))
+            tmp_x = x(i, k) / x_scale
+            If Abs(tmp_x) < 700 Then
+                x(i, k) = 1# / (1 + Exp(-tmp_x))
+            ElseIf tmp_x >= 700 Then
+                x(i, k) = 1
+            ElseIf tmp_x <= -700 Then
+                x(i, k) = 0
+            End If
         Next i
     Next k
 End Sub
 
+'Inverse of sigmoid, fails when x is exactly 0 or 1
 Sub UnSquash_x(x() As Double, Optional x_scale As Double = 1)
 Dim i As Long, k As Long
 Dim n_raw As Long, n_dimension As Long
