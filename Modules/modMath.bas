@@ -769,10 +769,11 @@ Dim i As Long, m As Long
 Dim x1 As Double, x2 As Double, w As Double
 Dim y() As Double
 ReDim y(1 To n)
-Randomize
 m = 0
 Do
-    w = 0
+    DoEvents
+    w = Timer
+    Randomize
     Do
         x1 = 2 * Rnd() - 1
         x2 = 2 * Rnd() - 1
