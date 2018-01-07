@@ -996,6 +996,233 @@ Dim cof() As Double, y() As Double
     Erase cof
 End Function
 
+'ln(Gamma(x))
+Function sfun_gammaln(x As Variant) As Variant
+Dim j As Long, i As Long, n As Long
+Dim tmp_x As Double, y As Double, z As Double, ser As Double, xArr() As Double
+Dim cof() As Double, stp As Double
+    ReDim cof(1 To 6)
+    cof(1) = 76.1800917294715
+    cof(2) = -86.5053203294168
+    cof(3) = 24.0140982408309
+    cof(4) = -1.23173957245015
+    cof(5) = 1.20865097386618E-03
+    cof(6) = -5.395239384953E-06
+    stp = 2.506628274631
+    
+    If IsArray(x) = False Then
+    
+        tmp_x = x
+        y = tmp_x
+        z = tmp_x + 5.5
+        z = (tmp_x + 0.5) * Log(z) - z
+        ser = 1.00000000019001
+        For j = 1 To 6
+            y = y + 1
+            ser = ser + cof(j) / y
+        Next j
+        sfun_gammaln = z + Log(stp * ser / tmp_x)
+        
+    Else
+        
+        n = UBound(x, 1)
+        ReDim xArr(1 To n)
+        For i = 1 To n
+            tmp_x = x(i)
+            y = tmp_x
+            z = tmp_x + 5.5
+            z = (tmp_x + 0.5) * Log(z) - z
+            ser = 1.00000000019001
+            For j = 1 To 6
+                y = y + 1
+                ser = ser + cof(j) / y
+            Next j
+            xArr(i) = z + Log(stp * ser / tmp_x)
+        Next i
+        sfun_gammaln = xArr
+        
+    End If
+End Function
+
+'Function sfun_gammaln(x As Double) As Double
+'Dim j As Long
+'Dim tmp_x As Double, y As Double, z As Double, ser As Double
+'Dim cof() As Double, stp As Double
+'    ReDim cof(1 To 6)
+'    cof(1) = 76.1800917294715
+'    cof(2) = -86.5053203294168
+'    cof(3) = 24.0140982408309
+'    cof(4) = -1.23173957245015
+'    cof(5) = 1.20865097386618E-03
+'    cof(6) = -5.395239384953E-06
+'    stp = 2.506628274631
+'    tmp_x = x
+'    y = tmp_x
+'    z = tmp_x + 5.5
+'    z = (tmp_x + 0.5) * Log(z) - z
+'    ser = 1.00000000019001
+'    For j = 1 To 6
+'        y = y + 1
+'        ser = ser + cof(j) / y
+'    Next j
+'    sfun_gammaln = z + Log(stp * ser / tmp_x)
+'End Function
+
+'Incomplete gamma function (lower) gamma(alpha, x)
+Function sfun_gammp(alpha As Double, x As Variant) As Variant
+Dim i As Long, n As Long
+Dim gln As Double, tmp_x As Double
+Dim y() As Double
+    gln = sfun_gammaln(alpha)
+    If IsArray(x) = False Then
+        If x < 0 Or alpha <= 0 Then
+            Debug.Print "sfun_gammp: alpha & x cannot be negative."
+            Exit Function
+        End If
+        If x < (alpha + 1) Then
+            Call gamma_gser(tmp_x, alpha, x, gln)
+            sfun_gammp = tmp_x
+        Else
+            Call gamma_gcf(tmp_x, alpha, x, gln)
+            sfun_gammp = 1 - tmp_x
+        End If
+    Else
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            If x(i) < (alpha + 1) Then
+                Call gamma_gser(tmp_x, alpha, x(i), gln)
+                y(i) = tmp_x
+            Else
+                Call gamma_gcf(tmp_x, alpha, x(i), gln)
+                y(i) = 1 - tmp_x
+            End If
+        Next i
+        sfun_gammp = y
+    End If
+End Function
+
+'Incomplete gamma function (upper) gamma(alpha, x)
+Function sfun_gammq(alpha As Double, x As Variant) As Variant
+Dim i As Long, n As Long
+Dim gln As Double, tmp_x As Double
+Dim y() As Double
+    gln = sfun_gammaln(alpha)
+    If IsArray(x) = False Then
+        If x < 0 Or alpha <= 0 Then
+            Debug.Print "sfun_gammq: alpha & x cannot be negative."
+            Exit Function
+        End If
+        If x < (alpha + 1) Then
+            Call gamma_gser(tmp_x, alpha, x, gln)
+            sfun_gammq = 1 - tmp_x
+        Else
+            Call gamma_gcf(tmp_x, alpha, x, gln)
+            sfun_gammq = tmp_x
+        End If
+    Else
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            If x(i) < (alpha + 1) Then
+                Call gamma_gser(tmp_x, alpha, x(i), gln)
+                y(i) = 1 - tmp_x
+            Else
+                Call gamma_gcf(tmp_x, alpha, x(i), gln)
+                y(i) = tmp_x
+            End If
+        Next i
+        sfun_gammq = y
+    End If
+End Function
+
+Private Sub gamma_gser(gamser As Double, alpha As Double, x As Variant, gln As Double)
+Dim i As Long, iter_max As Long
+Dim tol As Double, ap As Double, del As Double, xsum As Double
+    iter_max = 100
+    tol = 0.0000003
+    'gln = sfun_gammaln(alpha)
+    If x <= 0 Then
+        If x < 0 Then Debug.Print "x<0 in gser"
+        gamser = 0
+        Exit Sub
+    End If
+    ap = alpha
+    xsum = 1# / alpha
+    del = xsum
+    For i = 1 To iter_max
+        ap = ap + 1
+        del = del * x / ap
+        xsum = xsum + del
+        If Abs(del) < (Abs(xsum) * tol) Then
+            gamser = xsum * Exp(-x + alpha * Log(x) - gln)
+            Exit Sub
+        End If
+    Next i
+    Debug.Print "gamma_gser: Failed to converge."
+End Sub
+
+Private Sub gamma_gcf(gammcf As Double, alpha As Double, x As Variant, gln As Double)
+Dim i As Long, iter_max As Long
+Dim tol As Double, fpmin As Double
+Dim an As Double, xB As Double, xc As Double, xd As Double, del As Double, xh As Double
+    iter_max = 100
+    tol = 0.0000003
+    fpmin = 1E-30
+    'gln = sfun_gammaln(alpha)
+    xB = x + 1 - alpha
+    xc = 1# / fpmin
+    xd = 1# / xB
+    xh = xd
+    For i = 1 To iter_max
+        an = -i * (i - alpha)
+        xB = xB + 2
+        xd = an * xd + xB
+        If (Abs(xd) < fpmin) Then xd = fpmin
+        xc = xB + an / xc
+        If (Abs(xc) < fpmin) Then xc = fpmin
+        xd = 1 / xd
+        del = xd * xc
+        xh = xh * del
+        If Abs(del - 1) < tol Then
+            gammcf = Exp(-x + alpha * Log(x) - gln) * xh
+            Exit Sub
+        End If
+    Next i
+    Debug.Print "gamma_gcf: Failed to converge."
+End Sub
+
+Function sfun_erf(x As Variant) As Variant
+Dim i As Long, n As Long
+Dim y() As Double
+    If IsArray(x) = False Then
+        If x < 0 Then
+            sfun_erf = -sfun_gammp(0.5, x ^ 2)
+        Else
+            sfun_erf = sfun_gammp(0.5, x ^ 2)
+        End If
+    Else
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = x(i) ^ 2
+        Next i
+        y = sfun_gammp(0.5, y)
+        For i = 1 To n
+            If x(i) < 0 Then y(i) = -y(i)
+        Next i
+'        For i = 1 To n
+'            If x(i) < 0 Then
+'                y(i) = -sfun_gammp(0.5, x(i) ^ 2)
+'            Else
+'                y(i) = sfun_gammp(0.5, x(i) ^ 2)
+'            End If
+'        Next i
+        sfun_erf = y
+    End If
+End Function
+
+
 ''pdf of student-t distribution
 ''nu = degree of freedom
 'Function student_pdf(x As Double, nu As Double, Optional mu As Double = 0, Optional var As Double = 1) As Double
@@ -3541,6 +3768,20 @@ Dim likelihood As Double
         
         likelihood = Cauchy_Fit(x, x_loc, x_scale)
     
+    ElseIf VBA.UCase(fit_type) = "GAMMA" Then
+ 
+        x_loc = 0
+        x_scale = 0
+        For i = 1 To n
+            x_loc = x_loc + x(i)
+            x_scale = x_scale + x(i) ^ 2
+        Next i
+        x_loc = x_loc / n
+        x_scale = x_scale / n - x_loc ^ 2
+        'Method of moments
+        x_shape = (x_loc ^ 2) / x_scale
+        x_scale = x_loc / x_shape
+    
     Else
         Debug.Print "Prob_Fit: " & fit_type & " is not a valid option."
     End If
@@ -3565,6 +3806,8 @@ Dim p As Double
         p = Exp(-(p ^ 2) / 2) * (1 + Application.WorksheetFunction.Erf(x_asym * p / Sqr(2))) / (Sqr(6.28318530717959) * x_scale)
     ElseIf prob_type = "CAUCHY" Then
         p = 1 / ((1 + ((x - x_loc) / x_scale) ^ 2) * x_scale * 3.14159265358979)
+    ElseIf prob_type = "GAMMA" Then
+        p = pdf_gamma(x, x_asym, x_scale)
     End If
     Prob_x = p
 End Function
@@ -3977,6 +4220,200 @@ Dim tmp_x As Double
     Cauchy_Likelihood = -tmp_x / n - Log(x_scale * 3.14159265358979)
 End Function
 
+
+'=== PDF & CDF functions
+Function pdf_gamma(x As Variant, k As Double, Optional theta As Double = 1) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double, tmp_y As Double
+    If IsArray(x) = False Then
+        tmp_x = x / theta
+        pdf_gamma = ((tmp_x ^ (k - 1)) * Exp(-tmp_x)) / (theta * Exp(sfun_gammaln(k)))
+    Else
+        tmp_y = theta * Exp(sfun_gammaln(k))
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            If x(i) > 0 Then
+                tmp_x = x(i) / theta
+                y(i) = ((tmp_x ^ (k - 1)) * Exp(-tmp_x)) / tmp_y
+            End If
+        Next i
+        pdf_gamma = y
+    End If
+End Function
+
+Function cdf_gamma(x As Variant, k As Double, Optional theta As Double = 1) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double
+    If IsArray(x) = False Then
+        cdf_gamma = sfun_gammp(k, x / theta)
+    Else
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            If x(i) > 0 Then y(i) = x(i) / theta
+        Next i
+        y = sfun_gammp(k, y)
+'        For i = 1 To n
+'            If x(i) > 0 Then y(i) = sfun_gammp(k, x(i) / theta)
+'        Next i
+        cdf_gamma = y
+    End If
+End Function
+
+Function pdf_laplace(x As Variant, x_loc As Double, x_scale As Double) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double
+    If IsArray(x) = False Then
+        pdf_laplace = Exp(-Abs(x - x_loc) / x_scale) / (2 * x_scale)
+    Else
+        tmp_x = 2 * x_scale
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = Exp(-Abs(x(i) - x_loc) / x_scale) / tmp_x
+        Next i
+        pdf_laplace = y
+    End If
+End Function
+
+Function cdf_laplace(x As Variant, x_loc As Double, x_scale As Double) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double
+    If IsArray(x) = False Then
+        cdf_laplace = 0.5 + 0.5 * Sgn(x - x_loc) * (1 - Exp(-Abs(x - x_loc) / x_scale))
+    Else
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = 0.5 + 0.5 * Sgn(x(i) - x_loc) * (1 - Exp(-Abs(x(i) - x_loc) / x_scale))
+        Next i
+        cdf_laplace = y
+    End If
+End Function
+
+Function pdf_gaussian(x As Variant, x_mean As Double, x_var As Double) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double
+    If IsArray(x) = False Then
+        pdf_gaussian = Exp(-((x - x_mean) ^ 2) / (2 * x_var)) / Sqr(6.28318530717959 * x_var)
+    Else
+        tmp_x = Sqr(6.28318530717959 * x_var)
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = Exp(-((x(i) - x_mean) ^ 2) / (2 * x_var)) / tmp_x
+        Next i
+        pdf_gaussian = y
+    End If
+End Function
+
+Function cdf_gaussian(x As Variant, x_mean As Double, x_var As Double) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double
+    If IsArray(x) = False Then
+        cdf_gaussian = 0.5 * (1 + Application.WorksheetFunction.Erf((x - x_mean) / (Sqr(2 * x_var))))
+    Else
+        tmp_x = Sqr(2 * x_var)
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = (x(i) - x_mean) / tmp_x
+        Next i
+        y = sfun_erf(y)
+        For i = 1 To n
+            y(i) = 0.5 * (1 + y(i))
+        Next i
+'        For i = 1 To n
+'            y(i) = 0.5 * (1 + Application.WorksheetFunction.Erf((x(i) - x_mean) / tmp_x))
+'        Next i
+        cdf_gaussian = y
+    End If
+End Function
+
+Function pdf_ALD(x As Variant, x_loc As Double, x_scale As Double, Optional x_asym As Double = 0) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double
+    If IsArray(x) = False Then
+        If x < x_loc Then
+            pdf_ALD = (x_scale / (x_asym + 1 / x_asym)) * Exp((x_scale / x_asym) * (x - x_loc))
+        ElseIf x >= x_loc Then
+            pdf_ALD = (x_scale / (x_asym + 1 / x_asym)) * Exp(-(x_scale * x_asym) * (x - x_loc))
+        End If
+    Else
+        tmp_x = (x_scale / (x_asym + 1 / x_asym))
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            If x(i) < x_loc Then
+                y(i) = tmp_x * Exp((x_scale / x_asym) * (x(i) - x_loc))
+            Else
+                y(i) = tmp_x * Exp(-(x_scale * x_asym) * (x(i) - x_loc))
+            End If
+        Next i
+        pdf_ALD = y
+    End If
+End Function
+
+Function cdf_ALD(x As Variant, x_loc As Double, x_scale As Double, Optional x_asym As Double = 0) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double, tmp_y As Double
+    If IsArray(x) = False Then
+        If x < x_loc Then
+            cdf_ALD = ((x_asym ^ 2) / (1 + x_asym ^ 2)) * Exp((x_scale / x_asym) * (x - x_loc))
+        ElseIf x >= x_loc Then
+            cdf_ALD = 1 - (1 / (1 + x_asym ^ 2)) * Exp(-(x_scale * x_asym) * (x - x_loc))
+        End If
+    Else
+        tmp_x = (x_asym ^ 2) / (1 + x_asym ^ 2)
+        tmp_y = 1 / (1 + x_asym ^ 2)
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            If x(i) < x_loc Then
+                y(i) = tmp_x * Exp((x_scale / x_asym) * (x(i) - x_loc))
+            Else
+                y(i) = 1 - tmp_y * Exp(-(x_scale * x_asym) * (x(i) - x_loc))
+            End If
+        Next i
+        cdf_ALD = y
+    End If
+End Function
+
+Function pdf_AGD(x As Variant, x_loc As Double, x_scale As Double, Optional x_asym As Double = 0) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, z() As Double, tmp_x As Double, tmp_y As Double, p As Double
+    If IsArray(x) = False Then
+        p = (x - x_loc) / x_scale
+        pdf_AGD = Exp(-(p ^ 2) / 2) * (1 + Application.WorksheetFunction.Erf(x_asym * p / Sqr(2))) / (Sqr(6.28318530717959) * x_scale)
+    Else
+        tmp_x = Sqr(6.28318530717959) * x_scale
+        tmp_y = (x_asym / Sqr(2)) / x_scale
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = (x(i) - x_loc) * tmp_y
+        Next i
+        y = sfun_erf(y)
+        For i = 1 To n
+            p = (x(i) - x_loc) / x_scale
+            y(i) = Exp(-(p ^ 2) / 2) * (1 + y(i)) / tmp_x
+        Next i
+'        For i = 1 To n
+'            p = (x(i) - x_loc) / x_scale
+'            y(i) = Exp(-(p ^ 2) / 2) * (1 + Application.WorksheetFunction.Erf(x_asym * p / Sqr(2))) / tmp_x
+'        Next i
+        pdf_AGD = y
+    End If
+End Function
+
+Function pdf_CAUCHY(x As Double, x_loc As Double, x_scale As Double) As Double
+    pdf_CAUCHY = 1 / ((1 + ((x - x_loc) / x_scale) ^ 2) * x_scale * 3.14159265358979)
+End Function
+
+Function cdf_CAUCHY(x As Double, x_loc As Double, x_scale As Double) As Double
+    cdf_CAUCHY = 0.5 + VBA.Atn((x - x_loc) / x_scale) / 3.14159265358979
+End Function
 
 '=== Find convex hull of 2D data using Graham Scan
 'Input: x(1 to N,1 to 2) is the set of N points with coordinate (x,y) store in the first dimension
