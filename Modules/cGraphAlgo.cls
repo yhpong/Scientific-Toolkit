@@ -91,27 +91,42 @@ End Property
 
 '=== Build Minimum Spanning Tree from a pairwise distance matrix
 'Input: Symmetric Distance(N x N) matrix
-Sub MST_Build(distance() As Double)
+Sub MST_Build(distance As Variant, Optional input_format = "MATRIX", Optional AdjList As Variant)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
 Dim n_pairs As Long
 Dim temp1 As Long, temp2 As Long
 Dim parent() As Long, sort_index() As Long
 Dim tmp_x As Double
+Dim xArr() As Double, iArr() As Long, PairList() As Long, d() As Double
 
-pSize = UBound(distance, 1)
-n_pairs = pSize * (pSize - 1) / 2
+If input_format = "MATRIX" Then
+    pSize = UBound(distance, 1)
+    n_pairs = pSize * (pSize - 1) / 2
+    k = 0
+    ReDim d(1 To n_pairs)
+    For i = 1 To pSize - 1
+        For j = i + 1 To pSize
+            k = k + 1
+            d(k) = distance(i, j)
+        Next j
+    Next i
+ElseIf input_format = "ADJ_LIST" Then
+    pSize = UBound(distance, 1)
+    Call Convert_ADJ_LIST_2_EDGE_LIST(distance, AdjList, PairList, d, pSize, n_pairs)
+ElseIf input_format = "EDGE_LIST" Then
+    n_pairs = UBound(distance, 1)
+    d = distance
+    PairList = AdjList
+    pSize = 0
+    For k = 1 To n_pairs
+        If AdjList(k, 1) > pSize Then pSize = AdjList(k, 1)
+        If AdjList(k, 2) > pSize Then pSize = AdjList(k, 2)
+    Next k
+End If
+
 ReDim pnode_idx(1 To pSize)
 For i = 1 To pSize
     pnode_idx(i) = i
-Next i
-
-k = 0
-ReDim d(1 To n_pairs)
-For i = 1 To pSize - 1
-    For j = i + 1 To pSize
-        k = k + 1
-        d(k) = distance(i, j)
-    Next j
 Next i
 
 Application.StatusBar = "Building MST: Sorting distances...."
@@ -122,8 +137,13 @@ ReDim parent(1 To pSize)
 ReDim pEdgeList(1 To pSize - 1, 1 To 2)
 ReDim pEdgeDist(1 To pSize - 1)
 For k = 1 To n_pairs
-    
-    Call condense2sq(sort_index(k), pSize, m, n)
+
+    If input_format = "MATRIX" Then
+        Call condense2sq(sort_index(k), pSize, m, n)
+    Else
+        m = PairList(sort_index(k), 1)
+        n = PairList(sort_index(k), 2)
+    End If
     
     If parent(m) <> parent(n) Or (parent(m) + parent(n)) = 0 Then
     
@@ -921,3 +941,246 @@ If node_index(m) > 0 Then
 End If
 End Sub
 
+
+
+Sub Convert_ADJ_LIST_2_EDGE_LIST(AdjDist As Variant, AdjIdx As Variant, EdgeList() As Long, EdgeDist() As Double, n_node As Long, n_edge As Long)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long
+Dim xArr() As Double, iArr() As Long, PairList() As Long
+Dim isReverse As Boolean
+    n_node = UBound(AdjDist, 1)
+    n_edge = 0
+    ReDim EdgeDist(1 To 1)
+    ReDim PairList(1 To 2, 1 To 1)
+    If VBA.TypeName(AdjDist) = "Double()" And VBA.TypeName(AdjIdx) = "Long()" Then
+        For i = 1 To n_node
+            For m = 1 To UBound(AdjDist, 2)
+                j = AdjIdx(i, m)
+                If j > 0 Then
+                    isReverse = False
+                    For k = 1 To n_edge
+                        If (PairList(1, k) = i And PairList(2, k) = j) Or (PairList(1, k) = j And PairList(2, k) = i) Then
+                            isReverse = True
+                            Exit For
+                        End If
+                    Next k
+                    If isReverse = False Then
+                        n_edge = n_edge + 1
+                        ReDim Preserve PairList(1 To 2, 1 To n_edge)
+                        ReDim Preserve EdgeDist(1 To n_edge)
+                        PairList(1, n_edge) = i
+                        PairList(2, n_edge) = j
+                        EdgeDist(n_edge) = AdjDist(i, m)
+                    End If
+                End If
+            Next m
+        Next i
+    Else
+        For i = 1 To n_node
+            xArr = AdjDist(i)
+            iArr = AdjIdx(i)
+            For m = 1 To UBound(iArr, 1)
+                j = iArr(m)
+                isReverse = False
+                For k = 1 To n_edge
+                    If (PairList(1, k) = i And PairList(2, k) = j) Or (PairList(1, k) = j And PairList(2, k) = i) Then
+                        isReverse = True
+                        Exit For
+                    End If
+                Next k
+                If isReverse = False Then
+                    n_edge = n_edge + 1
+                    ReDim Preserve PairList(1 To 2, 1 To n_edge)
+                    ReDim Preserve EdgeDist(1 To n_edge)
+                    PairList(1, n_edge) = i
+                    PairList(2, n_edge) = j
+                    EdgeDist(n_edge) = xArr(m)
+                End If
+            Next m
+        Next i
+    End If
+    ReDim EdgeList(1 To n_edge, 1 To 2)
+    For i = 1 To n_edge
+        EdgeList(i, 1) = PairList(1, i)
+        EdgeList(i, 2) = PairList(2, i)
+    Next i
+    Erase PairList, xArr, iArr
+End Sub
+
+
+Sub Convert_EDGE_LIST_2_ADJ_LIST(EdgeList() As Long, EdgeDist() As Double, AdjDist As Variant, AdjIdx As Variant, n_node As Long, n_edge As Long)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, kk As Long
+Dim xArr() As Double, iArr() As Long, sort_idx() As Long, tmp_x As Double
+    n_edge = UBound(EdgeList, 1)
+    n_node = 0
+    For k = 1 To n_edge
+        If EdgeList(k, 1) > n_node Then n_node = EdgeList(k, 1)
+        If EdgeList(k, 2) > n_node Then n_node = EdgeList(k, 2)
+    Next k
+    xArr = EdgeDist
+    Call modMath.Sort_Quick_A(xArr, 1, n_edge, sort_idx, 1)
+    Erase xArr
+    
+    If VBA.TypeName(AdjDist) = "Double()" And VBA.TypeName(AdjIdx) = "Long()" Then
+        m = 0
+        ReDim iArr(1 To n_node)
+        For kk = 1 To n_edge
+            k = sort_idx(kk)
+            i = EdgeList(k, 1)
+            j = EdgeList(k, 2)
+            iArr(i) = iArr(i) + 1
+            iArr(j) = iArr(j) + 1
+        Next kk
+        For i = 1 To n_node
+            If iArr(i) > m Then m = iArr(i)
+        Next i
+        ReDim iArr(1 To n_node)
+        ReDim AdjIdx(1 To n_node, 1 To m)
+        ReDim AdjDist(1 To n_node, 1 To m)
+        For kk = 1 To n_edge
+            k = sort_idx(kk)
+            i = EdgeList(k, 1)
+            j = EdgeList(k, 2)
+            tmp_x = EdgeDist(k)
+            iArr(i) = iArr(i) + 1
+            AdjIdx(i, iArr(i)) = j
+            AdjDist(i, iArr(i)) = tmp_x
+            iArr(j) = iArr(j) + 1
+            AdjIdx(j, iArr(j)) = i
+            AdjDist(j, iArr(j)) = tmp_x
+        Next kk
+        Erase iArr, sort_idx
+    Else
+        ReDim xArr(0 To 0)
+        ReDim iArr(0 To 0)
+        ReDim AdjDist(1 To n_node)
+        ReDim AdjIdx(1 To n_node)
+        For i = 1 To n_node
+            AdjDist(i) = xArr
+            AdjIdx(i) = iArr
+        Next i
+        
+        For kk = 1 To n_edge
+    
+            k = sort_idx(kk)
+            i = EdgeList(k, 1)
+            j = EdgeList(k, 2)
+            tmp_x = EdgeDist(k)
+            
+            iArr = AdjIdx(i)
+            xArr = AdjDist(i)
+            m = UBound(iArr, 1)
+            If m > 0 Then
+                ReDim Preserve iArr(1 To m + 1)
+                ReDim Preserve xArr(1 To m + 1)
+            Else
+                ReDim iArr(1 To 1)
+                ReDim xArr(1 To 1)
+            End If
+            iArr(m + 1) = j
+            xArr(m + 1) = tmp_x
+            AdjIdx(i) = iArr
+            AdjDist(i) = xArr
+    
+            iArr = AdjIdx(j)
+            xArr = AdjDist(j)
+            m = UBound(iArr, 1)
+            If m > 0 Then
+                ReDim Preserve iArr(1 To m + 1)
+                ReDim Preserve xArr(1 To m + 1)
+            Else
+                ReDim iArr(1 To 1)
+                ReDim xArr(1 To 1)
+            End If
+            iArr(m + 1) = i
+            xArr(m + 1) = tmp_x
+            AdjIdx(j) = iArr
+            AdjDist(j) = xArr
+        Next kk
+        Erase xArr, iArr, sort_idx
+    End If
+End Sub
+
+Function count_component(Optional com_size As Variant, Optional com_idx As Variant) As Long
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, u As Long, v As Long
+Dim n_node As Long, n_edge As Long, n_component As Long, n_visit As Long, n_stack As Long
+Dim isVisited() As Long, vstack() As Long, iArr() As Long
+Dim AdjDist As Variant, AdjIdx As Variant, component_size() As Long, component_idx() As Long
+Dim isBacktrack As Boolean
+    Call Convert_EDGE_LIST_2_ADJ_LIST(pEdgeList, pEdgeDist, AdjDist, AdjIdx, n, n_edge)
+    
+    n_component = 1
+    ReDim component_size(1 To 1)
+    ReDim component_idx(1 To n)
+    ReDim vstack(1 To n)
+    ReDim isVisited(1 To n)
+    i = 1
+    n_stack = 0
+    n_visit = 0
+    isBacktrack = False
+    Do
+        If isVisited(i) = 0 Then
+            n_visit = n_visit + 1
+            isVisited(i) = n_visit
+            n_stack = n_stack + 1
+            vstack(n_stack) = i
+            component_idx(i) = n_component
+            component_size(n_component) = component_size(n_component) + 1
+            If n_visit = n Then Exit Do
+        End If
+        u = i
+        iArr = AdjIdx(i)
+        For m = 1 To UBound(iArr)
+            j = iArr(m)
+            If isVisited(j) = 0 Then
+                i = j
+                isBacktrack = False
+                Exit For
+            End If
+        Next m
+        If u = i Then
+            isBacktrack = True
+            n_stack = n_stack - 1
+            If n_stack > 0 Then
+                i = vstack(n_stack)
+            Else
+                n_component = n_component + 1
+                ReDim Preserve component_size(1 To n_component)
+                For j = 1 To n
+                    If isVisited(j) = 0 Then
+                        i = j
+                        Exit For
+                    End If
+                Next j
+            End If
+        End If
+    Loop While n_visit < n
+    count_component = n_component
+    
+    'Sort to label largest component as 1
+    Call modMath.Sort_Quick_A(component_size, 1, n_component, iArr, 1)
+    Call Reverse_Vec(component_size)
+    Call Reverse_Vec(iArr)
+    For i = 1 To n
+        For j = 1 To n_component
+            If iArr(j) = component_idx(i) Then
+                component_idx(i) = j
+                Exit For
+            End If
+        Next j
+    Next i
+    
+    If IsMissing(com_size) = False Then com_size = component_size
+    If IsMissing(com_idx) = False Then com_idx = component_idx
+End Function
+
+
+Sub Reverse_Vec(x As Variant)
+Dim i As Long, n As Long
+Dim u As Variant, v As Variant
+    n = UBound(x, 1)
+    For i = 1 To n \ 2
+        u = x(i)
+        x(i) = x(n - i + 1)
+        x(n - i + 1) = u
+    Next i
+End Sub
