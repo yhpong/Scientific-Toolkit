@@ -32,7 +32,9 @@ Private pnode_eigen() As Double 'Nx1 array storing eigen vector centrality of ea
 Private pnode_Katz() As Double  'Nx1 array storing katz centrality of each node
 Private pnode_next() As Long    'Nx1 mapping of current set of nodes to nodes in a coarsened graph
 
-
+'==================================
+'Access Properties
+'==================================
 Public Property Get Size() As Long
     Size = pSize
 End Property
@@ -89,6 +91,7 @@ Public Property Get node_Katz() As Double()
     node_Katz = pnode_Katz
 End Property
 
+
 '=== Build Minimum Spanning Tree from a pairwise distance matrix
 'Input: Symmetric Distance(N x N) matrix
 Sub MST_Build(distance As Variant, Optional input_format = "MATRIX", Optional AdjList As Variant)
@@ -98,6 +101,7 @@ Dim temp1 As Long, temp2 As Long
 Dim parent() As Long, sort_index() As Long
 Dim tmp_x As Double
 Dim xArr() As Double, iArr() As Long, PairList() As Long, d() As Double
+Dim n_component As Long
 
 If input_format = "MATRIX" Then
     pSize = UBound(distance, 1)
@@ -110,9 +114,11 @@ If input_format = "MATRIX" Then
             d(k) = distance(i, j)
         Next j
     Next i
+    n_component = 1
 ElseIf input_format = "ADJ_LIST" Then
     pSize = UBound(distance, 1)
     Call Convert_ADJ_LIST_2_EDGE_LIST(distance, AdjList, PairList, d, pSize, n_pairs)
+    n_component = count_component(PairList, d, "EDGE_LIST")
 ElseIf input_format = "EDGE_LIST" Then
     n_pairs = UBound(distance, 1)
     d = distance
@@ -122,6 +128,7 @@ ElseIf input_format = "EDGE_LIST" Then
         If AdjList(k, 1) > pSize Then pSize = AdjList(k, 1)
         If AdjList(k, 2) > pSize Then pSize = AdjList(k, 2)
     Next k
+    n_component = count_component(PairList, d, "EDGE_LIST")
 End If
 
 ReDim pnode_idx(1 To pSize)
@@ -134,8 +141,8 @@ Call modMath.Sort_Quick_A(d, 1, n_pairs, sort_index)
 
 pn_edge = 0
 ReDim parent(1 To pSize)
-ReDim pEdgeList(1 To pSize - 1, 1 To 2)
-ReDim pEdgeDist(1 To pSize - 1)
+ReDim pEdgeList(1 To pSize - n_component, 1 To 2)
+ReDim pEdgeDist(1 To pSize - n_component)
 For k = 1 To n_pairs
 
     If input_format = "MATRIX" Then
@@ -163,16 +170,16 @@ For k = 1 To n_pairs
         pEdgeList(pn_edge, 1) = m
         pEdgeList(pn_edge, 2) = n
         pEdgeDist(pn_edge) = d(k)
-        If pn_edge = (pSize - 1) Then Exit For
+        If pn_edge = (pSize - n_component) Then Exit For
         
         DoEvents
-        Application.StatusBar = "cMST.Build: " & pn_edge & " / " & (pSize - 1)
+        Application.StatusBar = "cMST.Build: " & pn_edge & " / " & (pSize - n_component)
         
     End If
 
 Next k
 
-If pn_edge <> (pSize - 1) Then
+If pn_edge <> (pSize - n_component) Then
     Debug.Print "MST_Build Fail: Num of edges is not equal to N-1"
 End If
 
@@ -189,12 +196,33 @@ End Sub
 
 
 '=== Import graph from user supplied EdgeList, EdgeDist and node_pos
-Sub Init(EdgeList() As Long, EdgeDist() As Double, node_pos() As Double)
-Dim i As Long
-    pn_edge = UBound(EdgeDist, 1)
-    pSize = UBound(node_pos, 1)
-    pEdgeList = EdgeList
-    pEdgeDist = EdgeDist
+Sub Init(EdgeList As Variant, EdgeDist As Variant, node_pos() As Double, _
+    Optional input_format = "EDGE_LIST")
+Dim i As Long, j As Long, k As Long
+    If input_format = "EDGE_LIST" Then
+        pn_edge = UBound(EdgeDist, 1)
+        pSize = UBound(node_pos, 1)
+        pEdgeList = EdgeList
+        pEdgeDist = EdgeDist
+    ElseIf input_format = "ADJ_LIST" Then
+        Call Convert_ADJ_LIST_2_EDGE_LIST(EdgeDist, EdgeList, pEdgeList, pEdgeDist, pSize, pn_edge)
+    ElseIf input_format = "MATRIX" Then
+        pSize = UBound(EdgeDist, 1)
+        pn_edge = pSize * (pSize - 1) / 2
+        k = 0
+        ReDim pEdgeDist(1 To pn_edge)
+        ReDim pEdgeList(1 To pn_edge, 1 To 2)
+        For i = 1 To pSize - 1
+            For j = i + 1 To pSize
+                pEdgeDist(k) = EdgeDist(k)
+                pEdgeList(k, 1) = i
+                pEdgeList(k, 2) = j
+            Next j
+        Next i
+    Else
+        Debug.Print "cGraphAlgo: Init: Failed."
+        End
+    End If
     pnode_pos = node_pos
     ReDim pnode_idx(1 To pSize)
     For i = 1 To pSize
@@ -202,6 +230,30 @@ Dim i As Long
     Next i
 End Sub
 
+''=== Import graph from user supplied EdgeList, EdgeDist and node_pos
+'Sub Init(EdgeList() As Long, EdgeDist() As Double, node_pos() As Double)
+'Dim i As Long
+'    pn_edge = UBound(EdgeDist, 1)
+'    pSize = UBound(node_pos, 1)
+'    pEdgeList = EdgeList
+'    pEdgeDist = EdgeDist
+'    pnode_pos = node_pos
+'    ReDim pnode_idx(1 To pSize)
+'    For i = 1 To pSize
+'        pnode_idx(i) = i
+'    Next i
+'End Sub
+
+''=== Import graph from user supplied adjacency list and node_pos
+'Sub Init_by_AdjList(AdjList As Variant, AdjDist As Variant, node_pos() As Double)
+'Dim i As Long
+'    Call Convert_ADJ_LIST_2_EDGE_LIST(AdjDist, AdjList, pEdgeList, pEdgeDist, pSize, pn_edge)
+'    pnode_pos = node_pos
+'    ReDim pnode_idx(1 To pSize)
+'    For i = 1 To pSize
+'        pnode_idx(i) = i
+'    Next i
+'End Sub
 
 '=== Release memory
 Sub Reset()
@@ -942,7 +994,6 @@ End If
 End Sub
 
 
-
 Sub Convert_ADJ_LIST_2_EDGE_LIST(AdjDist As Variant, AdjIdx As Variant, EdgeList() As Long, EdgeDist() As Double, n_node As Long, n_edge As Long)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
 Dim xArr() As Double, iArr() As Long, PairList() As Long
@@ -1007,15 +1058,20 @@ Dim isReverse As Boolean
 End Sub
 
 
-Sub Convert_EDGE_LIST_2_ADJ_LIST(EdgeList() As Long, EdgeDist() As Double, AdjDist As Variant, AdjIdx As Variant, n_node As Long, n_edge As Long)
+Sub Convert_EDGE_LIST_2_ADJ_LIST(EdgeList() As Long, EdgeDist() As Double, _
+        AdjDist As Variant, AdjIdx As Variant, n_node As Long, n_edge As Long, Optional force_n_node As Long = 0)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, kk As Long
 Dim xArr() As Double, iArr() As Long, sort_idx() As Long, tmp_x As Double
     n_edge = UBound(EdgeList, 1)
-    n_node = 0
-    For k = 1 To n_edge
-        If EdgeList(k, 1) > n_node Then n_node = EdgeList(k, 1)
-        If EdgeList(k, 2) > n_node Then n_node = EdgeList(k, 2)
-    Next k
+    If force_n_node > 0 Then
+        n_node = force_n_node
+    Else
+        n_node = 0
+        For k = 1 To n_edge
+            If EdgeList(k, 1) > n_node Then n_node = EdgeList(k, 1)
+            If EdgeList(k, 2) > n_node Then n_node = EdgeList(k, 2)
+        Next k
+    End If
     xArr = EdgeDist
     Call modMath.Sort_Quick_A(xArr, 1, n_edge, sort_idx, 1)
     Erase xArr
@@ -1100,13 +1156,35 @@ Dim xArr() As Double, iArr() As Long, sort_idx() As Long, tmp_x As Double
     End If
 End Sub
 
-Function count_component(Optional com_size As Variant, Optional com_idx As Variant) As Long
+
+Function count_component(AdjList As Variant, AdjDist As Variant, Optional input_format = "ADJ_LIST", _
+            Optional com_size As Variant, Optional com_idx As Variant) As Long
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, u As Long, v As Long
 Dim n_node As Long, n_edge As Long, n_component As Long, n_visit As Long, n_stack As Long
-Dim isVisited() As Long, vstack() As Long, iArr() As Long
-Dim AdjDist As Variant, AdjIdx As Variant, component_size() As Long, component_idx() As Long
+Dim isVisited() As Long, vstack() As Long, iArr() As Long, xArr() As Double
+Dim AdjD As Variant, AdjIdx As Variant, component_size() As Long, component_idx() As Long
 Dim isBacktrack As Boolean
-    Call Convert_EDGE_LIST_2_ADJ_LIST(pEdgeList, pEdgeDist, AdjDist, AdjIdx, n, n_edge)
+    If input_format = "ADJ_LIST" Then
+        n = UBound(AdjList, 1)
+        If VBA.TypeName(AdjList) = "Long()" Then
+            ReDim AdjIdx(1 To n)
+            m = UBound(AdjList, 2)
+            ReDim iArr(1 To m)
+            For i = 1 To n
+                For j = 1 To m
+                    iArr(j) = AdjList(i, j)
+                Next j
+                AdjIdx(i) = iArr
+            Next i
+        Else
+            AdjIdx = AdjList
+        End If
+    ElseIf input_format = "EDGE_LIST" Then
+        iArr = AdjList
+        xArr = AdjDist
+        Call Convert_EDGE_LIST_2_ADJ_LIST(iArr, xArr, AdjD, AdjIdx, n, n_edge)
+        Erase iArr, xArr, AdjD
+    End If
     
     n_component = 1
     ReDim component_size(1 To 1)
@@ -1155,7 +1233,7 @@ Dim isBacktrack As Boolean
         End If
     Loop While n_visit < n
     count_component = n_component
-    
+
     'Sort to label largest component as 1
     Call modMath.Sort_Quick_A(component_size, 1, n_component, iArr, 1)
     Call Reverse_Vec(component_size)
@@ -1168,13 +1246,12 @@ Dim isBacktrack As Boolean
             End If
         Next j
     Next i
-    
+
     If IsMissing(com_size) = False Then com_size = component_size
     If IsMissing(com_idx) = False Then com_idx = component_idx
 End Function
 
-
-Sub Reverse_Vec(x As Variant)
+Private Sub Reverse_Vec(x As Variant)
 Dim i As Long, n As Long
 Dim u As Variant, v As Variant
     n = UBound(x, 1)
@@ -1183,4 +1260,107 @@ Dim u As Variant, v As Variant
         x(i) = x(n - i + 1)
         x(n - i + 1) = u
     Next i
+End Sub
+
+
+
+'Perform topological sort on graph
+'Output: x_visited(1:N), x_visited(i)=j means node i is visited at the j-th step
+'        x_path, variant array to show plot DFS path in Excel
+'        i_start, index of node to start at
+Sub Sort_DFS(x_visited() As Long, Optional i_start As Long = 1, Optional x_path As Variant)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, p As Long, u As Long
+Dim mm As Long, n_visited As Long, n_edge As Long
+Dim isBacktrack As Boolean, print_path As Boolean
+Dim x_stack() As Long, iArr() As Long
+Dim vArr As Variant, AdjDist As Variant, AdjIdx As Variant
+    
+    Call Convert_EDGE_LIST_2_ADJ_LIST(pEdgeList, pEdgeDist, AdjDist, AdjIdx, n, n_edge, pSize)
+    
+    print_path = False
+    If IsMissing(x_path) = False Then print_path = True
+    
+    'Depth-First-Search traverse from first node
+    i = i_start: n_visited = 0: mm = 0
+    ReDim x_visited(1 To n) 'ordering of nodes
+    ReDim x_stack(1 To n)   'stack of visited nodes, use mm to indicate top of stack
+    isBacktrack = False     'whether current step is a backtrack
+    'path of nodes visited, with spacers in between for charting purpose
+    If print_path = True Then
+        m = 0
+        ReDim x_path(0 To 0)
+    End If
+    
+    Do
+        If print_path = True Then
+            If isBacktrack = False Then
+                m = UBound(x_path, 1) + 1
+                ReDim Preserve x_path(0 To m)
+                x_path(m) = i
+            End If
+        End If
+        If x_visited(i) = 0 Then
+            mm = mm + 1
+            x_stack(mm) = i
+            n_visited = n_visited + 1
+            x_visited(i) = n_visited
+            If n_visited = n Then Exit Do
+        End If
+        u = i
+        iArr = AdjIdx(i)
+        For k = 1 To UBound(iArr)
+            j = iArr(k)
+            If j = 0 Then Exit For
+            If x_visited(j) = 0 Then
+                '=== found a branch on backtracking, add spacer to path for charting purpose
+                If print_path = True Then
+                    If k > 1 And isBacktrack = True Then
+                        m = UBound(x_path, 1) + 2
+                        ReDim Preserve x_path(0 To m)
+                        x_path(m) = i
+                    End If
+                End If
+                '================
+                i = j
+                isBacktrack = False
+                Exit For
+            End If
+        Next k
+        If u = i Then   'No new node found, start backtracking
+            isBacktrack = True
+            mm = mm - 1
+            If mm > 0 Then 'Unwind stack to backtrack
+                i = x_stack(mm)
+            Else 'stack exhausted, stop backtracking and find next component
+                isBacktrack = False
+                For j = 1 To n
+                    If x_visited(j) = 0 Then
+                        i = j
+                        Exit For
+                    End If
+                Next j
+                'Start new component with a spacer
+                If print_path = True Then
+                    m = UBound(x_path, 1) + 1
+                    ReDim Preserve x_path(0 To m)
+                End If
+            End If
+        End If
+    Loop While n_visited < n
+
+    'Output path for charting
+    If print_path = True Then
+        m = UBound(x_path)
+        ReDim vArr(1 To m, 1 To UBound(pnode_pos, 2))
+        For i = 1 To m
+            j = x_path(i)
+            If j > 0 Then
+                For p = 1 To UBound(pnode_pos, 2)
+                    vArr(i, p) = pnode_pos(j, p)
+                Next p
+            End If
+        Next i
+        x_path = vArr
+    End If
+    
 End Sub
