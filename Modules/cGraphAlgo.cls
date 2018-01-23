@@ -1163,7 +1163,6 @@ Dim i As Long, j As Long, k As Long, m As Long, n As Long, u As Long, v As Long
 Dim n_node As Long, n_edge As Long, n_component As Long, n_visit As Long, n_stack As Long
 Dim isVisited() As Long, vstack() As Long, iArr() As Long, xArr() As Double
 Dim AdjD As Variant, AdjIdx As Variant, component_size() As Long, component_idx() As Long
-Dim isBacktrack As Boolean
     If input_format = "ADJ_LIST" Then
         n = UBound(AdjList, 1)
         If VBA.TypeName(AdjList) = "Long()" Then
@@ -1186,51 +1185,46 @@ Dim isBacktrack As Boolean
         Erase iArr, xArr, AdjD
     End If
     
-    n_component = 1
+    n_component = 0
     ReDim component_size(1 To 1)
     ReDim component_idx(1 To n)
     ReDim vstack(1 To n)
     ReDim isVisited(1 To n)
-    i = 1
-    n_stack = 0
     n_visit = 0
-    isBacktrack = False
+    n_stack = 1
+    vstack(1) = 1
     Do
-        If isVisited(i) = 0 Then
-            n_visit = n_visit + 1
-            isVisited(i) = n_visit
-            n_stack = n_stack + 1
-            vstack(n_stack) = i
-            component_idx(i) = n_component
-            component_size(n_component) = component_size(n_component) + 1
-            If n_visit = n Then Exit Do
+        n_component = n_component + 1
+        ReDim Preserve component_size(1 To n_component)
+        If n_component > 1 Then
+            n_stack = 1
+            For i = 1 To n
+                If isVisited(i) = 0 Then
+                    vstack(n_stack) = i
+                    Exit For
+                End If
+            Next i
         End If
-        u = i
-        iArr = AdjIdx(i)
-        For m = 1 To UBound(iArr)
-            j = iArr(m)
-            If isVisited(j) = 0 Then
-                i = j
-                isBacktrack = False
-                Exit For
-            End If
-        Next m
-        If u = i Then
-            isBacktrack = True
+        Do While n_stack > 0
+            i = vstack(n_stack)
             n_stack = n_stack - 1
-            If n_stack > 0 Then
-                i = vstack(n_stack)
-            Else
-                n_component = n_component + 1
-                ReDim Preserve component_size(1 To n_component)
-                For j = 1 To n
+            If isVisited(i) = 0 Then
+                n_visit = n_visit + 1
+                isVisited(i) = n_visit
+                iArr = AdjIdx(i)
+                For m = UBound(iArr) To 1 Step -1
+                    j = iArr(m)
                     If isVisited(j) = 0 Then
-                        i = j
-                        Exit For
+                        n_stack = n_stack + 1
+                        If n_stack > UBound(vstack) Then ReDim Preserve vstack(1 To n_stack)
+                        vstack(n_stack) = j
                     End If
-                Next j
+                Next m
+                component_idx(i) = n_component
+                component_size(n_component) = component_size(n_component) + 1
+                If n_visit = n Then Exit Do
             End If
-        End If
+        Loop
     Loop While n_visit < n
     count_component = n_component
 
@@ -1262,105 +1256,261 @@ Dim u As Variant, v As Variant
     Next i
 End Sub
 
-
-
-'Perform topological sort on graph
+'Perform topological sort on graph with depth first search
 'Output: x_visited(1:N), x_visited(i)=j means node i is visited at the j-th step
-'        x_path, variant array to show plot DFS path in Excel
 '        i_start, index of node to start at
-Sub Sort_DFS(x_visited() As Long, Optional i_start As Long = 1, Optional x_path As Variant)
+'        v_path, variant array to show plot DFS path in Excel
+'        v_path_back, variant array to show backward edge separately, if not supplied they will be append to v_path
+Sub Sort_DFS(x_visited() As Long, Optional i_start As Long = 1, _
+        Optional v_path As Variant, Optional v_path_back As Variant, Optional print_path As Boolean = False)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, p As Long, u As Long
-Dim mm As Long, n_visited As Long, n_edge As Long
-Dim isBacktrack As Boolean, print_path As Boolean
-Dim x_stack() As Long, iArr() As Long
+Dim mm As Long, n_visited As Long, n_edge As Long, n_stack As Long, n_component As Long
+Dim isBacktrack As Boolean, print_back_edge As Boolean
+Dim x_stack() As Long, iArr() As Long, x_parent() As Long
 Dim vArr As Variant, AdjDist As Variant, AdjIdx As Variant
-    
+Dim x_path() As Long, x_path_back() As Long
+
     Call Convert_EDGE_LIST_2_ADJ_LIST(pEdgeList, pEdgeDist, AdjDist, AdjIdx, n, n_edge, pSize)
-    
-    print_path = False
-    If IsMissing(x_path) = False Then print_path = True
-    
+
     'Depth-First-Search traverse from first node
-    i = i_start: n_visited = 0: mm = 0
+    i = i_start: n_visited = 0
     ReDim x_visited(1 To n) 'ordering of nodes
-    ReDim x_stack(1 To n)   'stack of visited nodes, use mm to indicate top of stack
-    isBacktrack = False     'whether current step is a backtrack
+    ReDim x_stack(1 To n)   'stack of visited nodes, use n_stack to indicate top of stack
+    ReDim x_parent(1 To n)  'immediate parent of each node
+
     'path of nodes visited, with spacers in between for charting purpose
     If print_path = True Then
-        m = 0
         ReDim x_path(0 To 0)
+        ReDim x_path_back(0 To 0)
     End If
     
+    n_component = 0
+    n_stack = 1
+    x_stack(1) = i_start
     Do
-        If print_path = True Then
-            If isBacktrack = False Then
-                m = UBound(x_path, 1) + 1
-                ReDim Preserve x_path(0 To m)
-                x_path(m) = i
-            End If
-        End If
-        If x_visited(i) = 0 Then
-            mm = mm + 1
-            x_stack(mm) = i
-            n_visited = n_visited + 1
-            x_visited(i) = n_visited
-            If n_visited = n Then Exit Do
-        End If
-        u = i
-        iArr = AdjIdx(i)
-        For k = 1 To UBound(iArr)
-            j = iArr(k)
-            If j = 0 Then Exit For
-            If x_visited(j) = 0 Then
-                '=== found a branch on backtracking, add spacer to path for charting purpose
-                If print_path = True Then
-                    If k > 1 And isBacktrack = True Then
-                        m = UBound(x_path, 1) + 2
-                        ReDim Preserve x_path(0 To m)
-                        x_path(m) = i
-                    End If
+        n_component = n_component + 1
+        If n_component > 1 Then
+            n_stack = 1
+            For i = 1 To n
+                If x_visited(i) = 0 Then
+                    x_stack(1) = i
+                    Exit For
                 End If
-                '================
-                i = j
-                isBacktrack = False
-                Exit For
-            End If
-        Next k
-        If u = i Then   'No new node found, start backtracking
-            isBacktrack = True
-            mm = mm - 1
-            If mm > 0 Then 'Unwind stack to backtrack
-                i = x_stack(mm)
-            Else 'stack exhausted, stop backtracking and find next component
-                isBacktrack = False
-                For j = 1 To n
-                    If x_visited(j) = 0 Then
-                        i = j
-                        Exit For
-                    End If
-                Next j
-                'Start new component with a spacer
-                If print_path = True Then
+            Next i
+        End If
+        u = 0
+        Do While n_stack > 0
+            i = x_stack(n_stack)
+            n_stack = n_stack - 1
+            If print_path = True Then
+                'if parent of i is not the node from previous iteration
+                'this has to be a branch, add spacer for chart
+                If u <> x_parent(i) Then
+                    m = UBound(x_path, 1)
+                    ReDim Preserve x_path(0 To m + 3)
+                    x_path(m + 2) = x_parent(i)
+                    x_path(m + 3) = i
+                Else
                     m = UBound(x_path, 1) + 1
                     ReDim Preserve x_path(0 To m)
+                    x_path(m) = i
                 End If
+            End If
+            If x_visited(i) = 0 Then
+                n_visited = n_visited + 1
+                x_visited(i) = n_visited
+                iArr = AdjIdx(i)
+                For k = UBound(iArr) To 1 Step -1
+                    j = iArr(k)
+                    If x_visited(j) = 0 Then
+                        'if node is not visited but has parent assigned,
+                        'that {j i parent(j)} forms a cycle and j is already
+                        'in the stack, no need to add it again
+                        If x_parent(j) = 0 Then
+                            x_parent(j) = i
+                            n_stack = n_stack + 1
+                            If n_stack > UBound(x_stack) Then ReDim Preserve x_stack(1 To n_stack)
+                            x_stack(n_stack) = j
+                        End If
+                    ElseIf x_visited(j) < x_visited(i) And j <> x_parent(i) Then
+                        'Cycle found, add a back edge
+                        If print_path = True Then
+                            m = UBound(x_path_back, 1)
+                            If m = 0 Then m = -1
+                            ReDim Preserve x_path_back(0 To m + 3)
+                            x_path_back(m + 2) = i
+                            x_path_back(m + 3) = j
+                        End If
+                    End If
+                Next k
+                If n_visited = n Then Exit Do
+            End If
+            u = i
+        Loop
+        'Start new component with a spacer
+        If print_path = True Then
+            If n_visited < n Then
+                m = UBound(x_path, 1) + 1
+                ReDim Preserve x_path(0 To m)
+                m = UBound(x_path_back, 1) + 1
+                ReDim Preserve x_path_back(0 To m)
             End If
         End If
     Loop While n_visited < n
 
     'Output path for charting
     If print_path = True Then
-        m = UBound(x_path)
-        ReDim vArr(1 To m, 1 To UBound(pnode_pos, 2))
-        For i = 1 To m
-            j = x_path(i)
-            If j > 0 Then
-                For p = 1 To UBound(pnode_pos, 2)
-                    vArr(i, p) = pnode_pos(j, p)
-                Next p
+        If IsMissing(v_path_back) = False Then
+            'Show forward arc and back-edge separately
+            m = UBound(x_path)
+            ReDim v_path(1 To m, 1 To UBound(pnode_pos, 2))
+            For i = 1 To m
+                j = x_path(i)
+                If j > 0 Then
+                    For p = 1 To UBound(pnode_pos, 2)
+                        v_path(i, p) = pnode_pos(j, p)
+                    Next p
+                End If
+            Next i
+            m = UBound(x_path_back)
+            If m > 0 Then
+                ReDim v_path_back(1 To m, 1 To UBound(pnode_pos, 2))
+                For i = 1 To m
+                    j = x_path_back(i)
+                    If j > 0 Then
+                        For p = 1 To UBound(pnode_pos, 2)
+                            v_path_back(i, p) = pnode_pos(j, p)
+                        Next p
+                    End If
+                Next i
+            Else
+                Debug.Print "Sort_DFS: no back-edge found."
+                ReDim v_path_back(0 To 0)
             End If
-        Next i
-        x_path = vArr
+        Else
+            'Combine forward and backward edges into one chart
+            m = UBound(x_path) + UBound(x_path_back) + 1
+            ReDim v_path(1 To m, 1 To UBound(pnode_pos, 2))
+            For i = 1 To UBound(x_path)
+                j = x_path(i)
+                If j > 0 Then
+                    For p = 1 To UBound(pnode_pos, 2)
+                        v_path(i, p) = pnode_pos(j, p)
+                    Next p
+                End If
+            Next i
+            For i = 1 To UBound(x_path_back)
+                j = x_path_back(i)
+                If j > 0 Then
+                    For p = 1 To UBound(pnode_pos, 2)
+                        v_path(UBound(x_path) + 1 + i, p) = pnode_pos(j, p)
+                    Next p
+                End If
+            Next i
+        End If
     End If
-    
+
 End Sub
+
+
+
+''Perform topological sort on graph
+''Output: x_visited(1:N), x_visited(i)=j means node i is visited at the j-th step
+''        x_path, variant array to show plot DFS path in Excel
+''        i_start, index of node to start at
+'Sub Sort_DFS(x_visited() As Long, Optional i_start As Long = 1, Optional x_path As Variant)
+'Dim i As Long, j As Long, k As Long, m As Long, n As Long, p As Long, u As Long
+'Dim mm As Long, n_visited As Long, n_edge As Long
+'Dim isBacktrack As Boolean, print_path As Boolean
+'Dim x_stack() As Long, iArr() As Long
+'Dim vArr As Variant, AdjDist As Variant, AdjIdx As Variant
+'
+'    Call Convert_EDGE_LIST_2_ADJ_LIST(pEdgeList, pEdgeDist, AdjDist, AdjIdx, n, n_edge, pSize)
+'
+'    print_path = False
+'    If IsMissing(x_path) = False Then print_path = True
+'
+'    'Depth-First-Search traverse from first node
+'    i = i_start: n_visited = 0: mm = 0
+'    ReDim x_visited(1 To n) 'ordering of nodes
+'    ReDim x_stack(1 To n)   'stack of visited nodes, use mm to indicate top of stack
+'    isBacktrack = False     'whether current step is a backtrack
+'    'path of nodes visited, with spacers in between for charting purpose
+'    If print_path = True Then
+'        m = 0
+'        ReDim x_path(0 To 0)
+'    End If
+'
+'    Do
+'        If print_path = True Then
+'            If isBacktrack = False Then
+'                m = UBound(x_path, 1) + 1
+'                ReDim Preserve x_path(0 To m)
+'                x_path(m) = i
+'            End If
+'        End If
+'        If x_visited(i) = 0 Then
+'            mm = mm + 1
+'            x_stack(mm) = i
+'            n_visited = n_visited + 1
+'            x_visited(i) = n_visited
+'            If n_visited = n Then Exit Do
+'        End If
+'        u = i
+'        iArr = AdjIdx(i)
+'        For k = 1 To UBound(iArr)
+'            j = iArr(k)
+'            If j = 0 Then Exit For
+'            If x_visited(j) = 0 Then
+'                '=== found a branch on backtracking, add spacer to path for charting purpose
+'                If print_path = True Then
+'                    If k > 1 And isBacktrack = True Then
+'                        m = UBound(x_path, 1) + 2
+'                        ReDim Preserve x_path(0 To m)
+'                        x_path(m) = i
+'                    End If
+'                End If
+'                '================
+'                i = j
+'                isBacktrack = False
+'                Exit For
+'            End If
+'        Next k
+'        If u = i Then   'No new node found, start backtracking
+'            isBacktrack = True
+'            mm = mm - 1
+'            If mm > 0 Then 'Unwind stack to backtrack
+'                i = x_stack(mm)
+'            Else 'stack exhausted, stop backtracking and find next component
+'                isBacktrack = False
+'                For j = 1 To n
+'                    If x_visited(j) = 0 Then
+'                        i = j
+'                        Exit For
+'                    End If
+'                Next j
+'                'Start new component with a spacer
+'                If print_path = True Then
+'                    m = UBound(x_path, 1) + 1
+'                    ReDim Preserve x_path(0 To m)
+'                End If
+'            End If
+'        End If
+'    Loop While n_visited < n
+'
+'    'Output path for charting
+'    If print_path = True Then
+'        m = UBound(x_path)
+'        ReDim vArr(1 To m, 1 To UBound(pnode_pos, 2))
+'        For i = 1 To m
+'            j = x_path(i)
+'            If j > 0 Then
+'                For p = 1 To UBound(pnode_pos, 2)
+'                    vArr(i, p) = pnode_pos(j, p)
+'                Next p
+'            End If
+'        Next i
+'        x_path = vArr
+'    End If
+'
+'End Sub
