@@ -44,6 +44,53 @@ Dim iL As Long, iR As Long
 End Function
 
 
+'if x(1:N) is sorted in ascending order:
+'Returns interger i s.t. x(i) <= tgt < x(i+1), -1 is return if tgt<x(1) or x(n)<tgt
+'if x(1:N) is sorted in descending order:
+'Returns interger i s.t. x(i) >= tgt > x(i+1), -1 is return if tgt>x(1) or x(n)>tgt
+Function Binary_Search_Db(x As Variant, tgt As Variant) As Long
+Dim n As Long, m As Long, iL As Long, iR As Long
+    n = UBound(x): iL = 1: iR = n
+    If x(1) < x(n) Then
+        If tgt < x(1) Or tgt > x(n) Then
+            Binary_Search_Db = -1
+        ElseIf tgt >= x(1) And tgt < x(2) Then
+            Binary_Search_Db = 1
+        ElseIf tgt = x(n) Then
+            Binary_Search_Db = n
+        Else
+            Do While (iR - iL) > 1
+                m = (iR + iL) \ 2
+                If tgt >= x(m) Then
+                    iL = m
+                Else
+                    iR = m
+                End If
+            Loop
+            Binary_Search_Db = iL
+        End If
+    Else
+        If tgt > x(1) Or tgt < x(n) Then
+            Binary_Search_Db = -1
+        ElseIf tgt <= x(1) And tgt > x(2) Then
+            Binary_Search_Db = 1
+        ElseIf tgt = x(n) Then
+            Binary_Search_Db = n
+        Else
+            Do While (iR - iL) > 1
+                m = (iR + iL) \ 2
+                If tgt <= x(m) Then
+                    iL = m
+                Else
+                    iR = m
+                End If
+            Loop
+            Binary_Search_Db = iL
+        End If
+    End If
+End Function
+
+
 'Return the k-th smallest value and its respective postion
 'Input:  x() and k
 'Output: x_min and i_min, single value if output_list is FALSE.
@@ -611,27 +658,27 @@ End Function
 'Input: Prob(), real vector of size (1:N) holding the probability of each integer
 '       isCumulative, set to TRUE if Prob() is already giving the cumulative prob.
 Function Random_Integer_Prob(Prob() As Double, Optional isCumulative As Boolean = False) As Long
-Dim i As Long, n_raw As Long
+Dim i As Long, n As Long
 Dim tmp_x As Double
 Dim prob_C() As Double
-    n_raw = UBound(Prob)
+    n = UBound(Prob)
     If isCumulative = False Then
-        ReDim prob_C(1 To n_raw)
+        ReDim prob_C(1 To n)
         prob_C(1) = Prob(1)
-        For i = 2 To n_raw
+        For i = 2 To n
             prob_C(i) = prob_C(i - 1) + Prob(i)
         Next i
     Else
         prob_C = Prob
     End If
-    
-    Randomize
     tmp_x = Rnd()
     If tmp_x <= prob_C(1) Then
         Random_Integer_Prob = 1
     Else
-        For i = 2 To n_raw
-            If tmp_x > prob_C(i - 1) And tmp_x <= prob_C(i) Then
+        Random_Integer_Prob = Binary_Search_Db(prob_C, tmp_x) + 1
+        If Random_Integer_Prob > n Then Random_Integer_Prob = n
+        For i = 2 To n
+            If prob_C(i - 1) < tmp_x And tmp_x <= prob_C(i) Then
                 Random_Integer_Prob = i
                 Exit For
             End If
@@ -768,40 +815,42 @@ Function Gaussian_Noise(x_mean As Double, x_sd As Double, n As Long, Optional fo
 Dim i As Long, m As Long
 Dim x1 As Double, x2 As Double, w As Double
 Dim y() As Double
-ReDim y(1 To n)
-m = 0
-Do
-    DoEvents
+    ReDim y(1 To n)
+    m = 0
     w = Timer
+    Do
+        DoEvents
+    Loop While Timer = w
     Randomize
     Do
-        x1 = 2 * Rnd() - 1
-        x2 = 2 * Rnd() - 1
-        w = x1 * x1 + x2 * x2
-    Loop While w >= 1 Or w = 0
-    w = Sqr(-2 * Log(w) / w)
-    m = m + 1
-    y(m) = x1 * w * x_sd + x_mean
-    If m = n Then Exit Do
-    m = m + 1
-    y(m) = x2 * w * x_sd + x_mean
-    If m = n Then Exit Do
-Loop While m <= n
-
-If force_mean_sd = True Then
-    x1 = 0
-    x2 = 0
-    For i = 1 To n
-        x1 = x1 + y(i)
-        x2 = x2 + y(i) ^ 2
-    Next i
-    x1 = x1 / n
-    x2 = Sqr((x2 / n - x1 * x1) * n * 1# / (n - 1))
-    For i = 1 To n
-        y(i) = ((y(i) - x1) / x2) * x_sd + x_mean
-    Next i
-End If
-Gaussian_Noise = y
+        Do
+            x1 = 2 * Rnd() - 1
+            x2 = 2 * Rnd() - 1
+            w = x1 * x1 + x2 * x2
+        Loop While w >= 1 Or w = 0
+        w = Sqr(-2 * Log(w) / w)
+        m = m + 1
+        y(m) = x1 * w * x_sd + x_mean
+        If m = n Then Exit Do
+        m = m + 1
+        y(m) = x2 * w * x_sd + x_mean
+        If m = n Then Exit Do
+    Loop While m <= n
+    
+    If force_mean_sd = True Then
+        x1 = 0
+        x2 = 0
+        For i = 1 To n
+            x1 = x1 + y(i)
+            x2 = x2 + y(i) ^ 2
+        Next i
+        x1 = x1 / n
+        x2 = Sqr((x2 / n - x1 * x1) * n * 1# / (n - 1))
+        For i = 1 To n
+            y(i) = ((y(i) - x1) / x2) * x_sd + x_mean
+        Next i
+    End If
+    Gaussian_Noise = y
 End Function
 
 
@@ -862,6 +911,62 @@ Gaussian_Noise_MV = x
 End Function
 
 
+'Generate multivariate data from Gaussian mixture, for a M-component mixture of D dimensions
+'Input:  n, number of points to generate
+'        mix_wgt(1:M) is a real vector holding mixture weights
+'        mix_mean(1:M) is a variant array. Each element is a mean vector of length (1:D)
+'        mix_covar(1:M) is a variant array, each element is a covariance matrix of size (1:D,1:D)
+'Output: real array of size (1:N,1:D)
+Function Gaussian_Noise_Mixture(n As Long, mix_wgt As Variant, mix_mean As Variant, mix_covar As Variant) As Double()
+Dim i As Long, j As Long, k As Long, m As Long, n_mixture As Long, n_dimension As Long
+Dim tmp_x As Double
+Dim mix_size() As Long
+Dim y() As Double, xk() As Double, x_mean() As Double, x_covar() As Double
+
+    n_mixture = UBound(mix_wgt)
+    n_dimension = UBound(mix_mean(1))
+
+    tmp_x = 0
+    ReDim Prob(1 To n_mixture)
+    ReDim mix_size(1 To n_mixture)
+    For i = 1 To n_mixture
+        tmp_x = tmp_x + mix_wgt(i)
+    Next i
+    j = 0
+    For i = 1 To n_mixture
+        mix_size(i) = Int(n * mix_wgt(i) / tmp_x)
+        j = j + mix_size(i)
+    Next i
+    If j < n Then mix_size(n_mixture) = mix_size(n_mixture) + (n - j)
+
+    m = 0
+    ReDim y(1 To n, 1 To n_dimension)
+    For k = 1 To n_mixture
+        x_mean = mix_mean(k)
+        x_covar = mix_covar(k)
+        xk = Gaussian_Noise_MV(x_mean, x_covar, mix_size(k))
+        For j = 1 To n_dimension
+            For i = 1 To mix_size(k)
+                y(m + i, j) = xk(i, j)
+            Next i
+        Next j
+        m = m + mix_size(k)
+    Next k
+    
+    mix_size = index_array(1, n)
+    Call Shuffle(mix_size)
+    xk = y
+    For j = 1 To n_dimension
+        For i = 1 To n
+            y(i, j) = xk(mix_size(i), j)
+        Next i
+    Next j
+    Gaussian_Noise_Mixture = y
+    
+    Erase xk, y, x_mean, x_covar, mix_size
+End Function
+
+
 '===========================================================
 'Random number generator with continuous distribution
 '===========================================================
@@ -915,7 +1020,8 @@ Dim x() As Double
     For i = 1 To n
         tmp_x = 0
         For k = 1 To shape_int
-            tmp_x = tmp_x - Log(Rnd())
+            u = Rnd(): If u = 0 Then u = Rnd()
+            tmp_x = tmp_x - Log(u)
         Next k
         x(i) = tmp_x
     Next i
@@ -948,6 +1054,47 @@ Dim x() As Double
     Erase x
 End Function
 
+'Second method to generate gamma variate, more efficient when k (x_shape)>10
+Function Rand_Gamma2(n As Long, x_shape As Double, x_scale As Double) As Double()
+Dim i As Long, j As Long, m As Long, iterate As Long
+Dim u As Double, v As Double, w As Double, xd As Double, xc As Double
+Dim x() As Double, y() As Double
+    xd = x_shape - 1 / 3
+    xc = 1 / Sqr(9 * xd)
+    m = 0
+    ReDim y(1 To n)
+    For iterate = 1 To n
+        x = Rand_Gaussian(n, 0, 1)
+        For i = 1 To n
+            v = (1 + xc * x(i)) ^ 3
+            If v > 0 Then
+                w = 0.5 * x(i) ^ 2 + xd - xd * v + xd * Log(v)
+                u = Rnd(): If u = 0 Then u = Rnd()
+                If Log(u) < w Then
+                    m = m + 1
+                    y(m) = xd * v
+                End If
+            End If
+            If m = n Then Exit For
+        Next i
+        If m = n Then Exit For
+    Next iterate
+    Rand_Gamma2 = y
+    Erase x, y
+End Function
+
+'Beta distribution: X ~ Beta(alpha, beta)
+Function Rand_Beta(n As Long, alpha As Double, beta As Double) As Double()
+Dim i As Long
+Dim x() As Double, y() As Double
+    x = Rand_Gamma(n, alpha, 1)
+    y = Rand_Gamma(n, beta, 1)
+    For i = 1 To n
+        x(i) = x(i) / (x(i) + y(i))
+    Next i
+    Rand_Beta = x
+    Erase x, y
+End Function
 
 '========================================
 ' Special Functions
@@ -1043,30 +1190,6 @@ Dim cof() As Double, stp As Double
         
     End If
 End Function
-
-'Function sfun_gammaln(x As Double) As Double
-'Dim j As Long
-'Dim tmp_x As Double, y As Double, z As Double, ser As Double
-'Dim cof() As Double, stp As Double
-'    ReDim cof(1 To 6)
-'    cof(1) = 76.1800917294715
-'    cof(2) = -86.5053203294168
-'    cof(3) = 24.0140982408309
-'    cof(4) = -1.23173957245015
-'    cof(5) = 1.20865097386618E-03
-'    cof(6) = -5.395239384953E-06
-'    stp = 2.506628274631
-'    tmp_x = x
-'    y = tmp_x
-'    z = tmp_x + 5.5
-'    z = (tmp_x + 0.5) * Log(z) - z
-'    ser = 1.00000000019001
-'    For j = 1 To 6
-'        y = y + 1
-'        ser = ser + cof(j) / y
-'    Next j
-'    sfun_gammaln = z + Log(stp * ser / tmp_x)
-'End Function
 
 'Incomplete gamma function (lower) gamma(alpha, x)
 Function sfun_gammp(alpha As Double, x As Variant) As Variant
@@ -1211,17 +1334,104 @@ Dim y() As Double
         For i = 1 To n
             If x(i) < 0 Then y(i) = -y(i)
         Next i
-'        For i = 1 To n
-'            If x(i) < 0 Then
-'                y(i) = -sfun_gammp(0.5, x(i) ^ 2)
-'            Else
-'                y(i) = sfun_gammp(0.5, x(i) ^ 2)
-'            End If
-'        Next i
         sfun_erf = y
     End If
 End Function
 
+'beta function
+Function sfun_beta(alpha As Variant, beta As Variant) As Variant
+Dim i As Long, n As Long
+Dim y1() As Double, y2() As Double, y3() As Double, z() As Double
+    If IsArray(alpha) = False And IsArray(beta) = False Then
+        sfun_beta = Exp(sfun_gammaln(alpha) + sfun_gammaln(beta) - sfun_gammaln(alpha + beta))
+    ElseIf IsArray(alpha) = True And IsArray(beta) = True Then
+        n = UBound(alpha, 1)
+        ReDim z(1 To n)
+        For i = 1 To n
+            z(i) = alpha(i) + beta(i)
+        Next i
+        y1 = sfun_gammaln(alpha): y2 = sfun_gammaln(beta): y3 = sfun_gammaln(z)
+        For i = 1 To n
+            y1(i) = Exp(y1(i) + y2(i) - y3(i))
+        Next i
+        sfun_beta = y1
+    End If
+End Function
+
+'Incomplete beta function regularized
+Function sfun_betai(x As Variant, alpha As Double, beta As Double) As Variant
+Dim i As Long, n As Long
+Dim y() As Double
+Dim tmp_x As Double, tmp_y As Double, bt As Double
+    tmp_x = sfun_gammaln(alpha + beta) - sfun_gammaln(alpha) - sfun_gammaln(beta)
+    tmp_y = (alpha + 1) / (alpha + beta + 2)
+    If IsArray(x) = False Then
+        If x > 0 And x < 1 Then
+            bt = Exp(tmp_x + alpha * Log(x) + beta * Log(1 - x))
+        ElseIf x = 0 Or x = 1 Then
+            bt = 0
+        Else
+            Debug.Print "sfun_betai: x must be bounded in [0,1]"
+            Exit Function
+        End If
+        If x < tmp_y Then
+            sfun_betai = bt * sfun_betacf(x, alpha, beta) / alpha
+        Else
+            sfun_betai = 1 - bt * sfun_betacf(1 - x, beta, alpha) / beta
+        End If
+    Else
+        n = UBound(x)
+        ReDim y(1 To n)
+        For i = 1 To n
+            If x(i) > 0 And x(i) < 1 Then
+                bt = Exp(tmp_x + alpha * Log(x(i)) + beta * Log(1 - x(i)))
+            ElseIf x(i) = 0 Or x(i) = 1 Then
+                bt = 0
+            Else
+                Debug.Print "sfun_betai: x must be bounded in [0,1]"
+                Exit Function
+            End If
+            If x(i) < tmp_y Then
+                y(i) = bt * sfun_betacf(x(i), alpha, beta) / alpha
+            Else
+                y(i) = 1 - bt * sfun_betacf(1 - x(i), beta, alpha) / beta
+            End If
+        Next i
+        sfun_betai = y
+    End If
+End Function
+
+Private Function sfun_betacf(x As Variant, alpha As Double, beta As Double) As Double
+Dim m As Long, m2 As Long, iter_max As Long
+Dim tol As Double, fpmin As Double
+Dim aa As Double, xc As Double, xd As Double, del As Double, xh As Double
+Dim qab As Double, qam As Double, qap As Double
+    iter_max = 100: tol = 0.0000003: fpmin = 1E-30
+    qab = alpha + beta: qap = alpha + 1: qam = alpha - 1
+    xc = 1
+    xd = 1 - qab * x / qap: If Abs(xd) < fpmin Then xd = fpmin
+    xd = 1# / xd
+    xh = xd
+    For m = 1 To iter_max
+        m2 = 2 * m
+        aa = m * (beta - m) * x / ((qam + m2) * (alpha + m2))
+        xd = 1 + aa * xd: If Abs(xd) < fpmin Then xd = fpmin
+        xc = 1 + aa / xc: If Abs(xc) < fpmin Then xc = fpmin
+        xd = 1# / xd
+        xh = xh * xd * xc
+        aa = -(alpha + m) * (qab + m) * x / ((alpha + m2) * (qap + m2))
+        xd = 1 + aa * xd: If Abs(xd) < fpmin Then xd = fpmin
+        xc = 1 + aa / xc: If Abs(xc) < fpmin Then xc = fpmin
+        xd = 1# / xd
+        del = xd * xc
+        xh = xh * del
+        If Abs(del - 1) < tol Then
+            sfun_betacf = xh
+            Exit Function
+        End If
+    Next m
+    Debug.Print "sfub_betacf: failed to converge."
+End Function
 
 ''pdf of student-t distribution
 ''nu = degree of freedom
@@ -3212,7 +3422,7 @@ End Sub
 'Fortran implementaion from : http://www.netlib.org/go/lowess.f
 '=======================================================
 Function LOWESS(y_in() As Double, x_in() As Double, Optional smoothing As Double = 0.25, Optional nsteps As Long = 2, Optional delta As Double = 0) As Double()
-Dim i As Long, j As Long, k As Long, iterate As Long, M1 As Long, M2 As Long
+Dim i As Long, j As Long, k As Long, iterate As Long, M1 As Long, m2 As Long
 Dim n_raw As Long
 Dim ys() As Double, res() As Double, rw() As Double
 Dim nleft As Long, nright As Long, ns As Long
@@ -3308,8 +3518,8 @@ For iterate = 1 To nsteps + 1
     Next i
     Call Sort_Quick(rw, 1, n_raw)
     M1 = 1 + n_raw / 2
-    M2 = n_raw - M1 + 1
-    cmad = 3 * (rw(M1) + rw(M2))
+    m2 = n_raw - M1 + 1
+    cmad = 3 * (rw(M1) + rw(m2))
     c9 = 0.999 * cmad
     c1 = 0.001 * cmad
     For i = 1 To n_raw
@@ -3714,7 +3924,7 @@ Dim x_loc As Double, x_scale As Double, x_asym As Double, likelihood As Double
         likelihood = Prob_Fit(x, x_loc, x_scale, x_asym, fit_type)
         ReDim Preserve x_hist(1 To n_bin, 1 To 3)
         For i = 1 To n_bin
-            x_hist(i, 3) = Prob_x(x_hist(i, 1), x_loc, x_scale, x_asym, fit_type)
+            x_hist(i, 3) = Prob_x(x_hist(i, 1), x_loc, x_scale, x_asym, VBA.UCase(fit_type))
         Next i
     End If
     
@@ -3730,9 +3940,11 @@ End Function
 'ALD:       (m,lambda,kappa)
 'AGD:       (xi, omega, alpha)
 'CAUCHY:    (x_loc, x_scale)
+'GAMMA:     (x_asym, x_scale) / (k, theta)
 Function Prob_Fit(x As Variant, x_loc As Double, x_scale As Double, x_asym As Double, Optional fit_type As String = "GAUSSIAN") As Double
 Dim i As Long, n As Long
-Dim likelihood As Double
+Dim likelihood As Double, y() As Double
+Dim x_mean As Double, x_var As Double
     x_loc = 0
     x_scale = 0
     x_asym = 0
@@ -3775,13 +3987,51 @@ Dim likelihood As Double
         For i = 1 To n
             x_loc = x_loc + x(i)
             x_scale = x_scale + x(i) ^ 2
+            If x(i) <= 0 Then
+                Debug.Print "Prob_Fit: Gamma can only fit x>0"
+                Prob_Fit = -999999
+                Exit Function
+            End If
         Next i
         x_loc = x_loc / n
         x_scale = x_scale / n - x_loc ^ 2
         'Method of moments
-        x_shape = (x_loc ^ 2) / x_scale
-        x_scale = x_loc / x_shape
+        x_asym = (x_loc ^ 2) / x_scale
+        x_scale = x_loc / x_asym
+        y = pdf_gamma(x, x_asym, x_scale)
+        likelihood = 0
+        For i = 1 To n
+            If y(i) > 0 Then likelihood = likelihood + Log(y(i))
+        Next i
+        likelihood = likelihood / n
+        
+    ElseIf VBA.UCase(fit_type) = "BETA" Then
     
+        x_mean = 0
+        x_var = 0
+        For i = 1 To n
+            x_mean = x_mean + x(i)
+            x_var = x_var + x(i) ^ 2
+            If x(i) < 0 Or x(i) > 1 Then
+                Debug.Print "Prob_Fit: Beta can only fit x between [0,1]"
+                Prob_Fit = -999999
+                Exit Function
+            End If
+        Next i
+        x_mean = x_mean / n
+        x_var = x_var / (n - 1) - n * (x_mean ^ 2) / (n - 1)
+        'Method of moments
+        If x_var < (x_mean * (1 - x_mean)) Then
+            x_loc = x_mean * (x_mean * (1 - x_mean) / x_var - 1)
+            x_scale = (1 - x_mean) * (x_mean * (1 - x_mean) / x_var - 1)
+        End If
+        y = pdf_beta(x, x_loc, x_scale)
+        likelihood = 0
+        For i = 1 To n
+            If y(i) > 0 Then likelihood = likelihood + Log(y(i))
+        Next i
+        likelihood = likelihood / n
+        
     Else
         Debug.Print "Prob_Fit: " & fit_type & " is not a valid option."
     End If
@@ -3808,6 +4058,8 @@ Dim p As Double
         p = 1 / ((1 + ((x - x_loc) / x_scale) ^ 2) * x_scale * 3.14159265358979)
     ElseIf prob_type = "GAMMA" Then
         p = pdf_gamma(x, x_asym, x_scale)
+    ElseIf prob_type = "BETA" Then
+        p = pdf_beta(x, x_loc, x_scale)
     End If
     Prob_x = p
 End Function
@@ -3846,7 +4098,7 @@ Dim y() As Double
     x_c = x_b - (x_b - x_A) / z
     x_d = x_A + (x_b - x_A) / z
     For iterate = 1 To 5000
-        If Abs(x_d - x_c) / (Abs(x_c) / 2) < tol Then Exit For
+        If Abs(x_d - x_c) < (tol * Abs(x_c) / 2) Then Exit For
         tmp_x = ALD_likelihood_calc_m(y, x_c, kappa, lambda, y_sum)
         tmp_y = ALD_likelihood_calc_m(y, x_d, kappa, lambda, y_sum)
         
@@ -4226,8 +4478,10 @@ Function pdf_gamma(x As Variant, k As Double, Optional theta As Double = 1) As V
 Dim i As Long, n As Long
 Dim y() As Double, tmp_x As Double, tmp_y As Double
     If IsArray(x) = False Then
-        tmp_x = x / theta
-        pdf_gamma = ((tmp_x ^ (k - 1)) * Exp(-tmp_x)) / (theta * Exp(sfun_gammaln(k)))
+        If x > 0 Then
+            tmp_x = x / theta
+            pdf_gamma = ((tmp_x ^ (k - 1)) * Exp(-tmp_x)) / (theta * Exp(sfun_gammaln(k)))
+        End If
     Else
         tmp_y = theta * Exp(sfun_gammaln(k))
         n = UBound(x, 1)
@@ -4246,7 +4500,7 @@ Function cdf_gamma(x As Variant, k As Double, Optional theta As Double = 1) As V
 Dim i As Long, n As Long
 Dim y() As Double, tmp_x As Double
     If IsArray(x) = False Then
-        cdf_gamma = sfun_gammp(k, x / theta)
+        If x > 0 Then cdf_gamma = sfun_gammp(k, x / theta)
     Else
         n = UBound(x, 1)
         ReDim y(1 To n)
@@ -4407,13 +4661,61 @@ Dim y() As Double, z() As Double, tmp_x As Double, tmp_y As Double, p As Double
     End If
 End Function
 
-Function pdf_CAUCHY(x As Double, x_loc As Double, x_scale As Double) As Double
-    pdf_CAUCHY = 1 / ((1 + ((x - x_loc) / x_scale) ^ 2) * x_scale * 3.14159265358979)
+Function pdf_CAUCHY(x As Variant, x_loc As Double, x_scale As Double) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double
+    If IsArray(x) = False Then
+        pdf_CAUCHY = 1 / ((1 + ((x - x_loc) / x_scale) ^ 2) * x_scale * 3.14159265358979)
+    Else
+        tmp_x = x_scale * 3.14159265358979
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = 1 / ((1 + ((x(i) - x_loc) / x_scale) ^ 2) * tmp_x)
+        Next i
+        pdf_CAUCHY = y
+    End If
 End Function
 
-Function cdf_CAUCHY(x As Double, x_loc As Double, x_scale As Double) As Double
-    cdf_CAUCHY = 0.5 + VBA.Atn((x - x_loc) / x_scale) / 3.14159265358979
+Function cdf_CAUCHY(x As Variant, x_loc As Double, x_scale As Double) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double
+    If IsArray(x) = False Then
+        cdf_CAUCHY = 0.5 + VBA.Atn((x - x_loc) / x_scale) / 3.14159265358979
+    Else
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            y(i) = 0.5 + VBA.Atn((x(i) - x_loc) / x_scale) / 3.14159265358979
+        Next i
+        cdf_CAUCHY = y
+    End If
 End Function
+
+Function pdf_beta(x As Variant, alpha As Double, beta As Double) As Variant
+Dim i As Long, n As Long
+Dim y() As Double, tmp_x As Double, tmp_y As Double
+    tmp_x = sfun_beta(alpha, beta)
+    If IsArray(x) = False Then
+        If x > 0 And x < 1 Then
+            pdf_beta = (x ^ (alpha - 1)) * ((1 - x) ^ (beta - 1)) / tmp_x
+        End If
+    Else
+        n = UBound(x, 1)
+        ReDim y(1 To n)
+        For i = 1 To n
+            If x(i) > 0 And x(i) < 1 Then
+                y(i) = (x(i) ^ (alpha - 1)) * ((1 - x(i)) ^ (beta - 1)) / tmp_x
+            End If
+        Next i
+        pdf_beta = y
+    End If
+End Function
+
+Function cdf_beta(x As Variant, alpha As Double, beta As Double) As Variant
+    cdf_beta = sfun_betai(x, alpha, beta)
+End Function
+
 
 '=== Find convex hull of 2D data using Graham Scan
 'Input: x(1 to N,1 to 2) is the set of N points with coordinate (x,y) store in the first dimension
@@ -4532,24 +4834,24 @@ End Function
 
 'Dot Product of A & B, set AT/BT=1 if A/B needs to be transpose
 'if one of them is a 1D-vector, only need to set the tranpose of the matrix
-Function M_Dot(A As Variant, B As Variant, Optional AT As Long = 0, Optional BT As Long = 0) As Double()
+Function M_Dot(A As Variant, B As Variant, Optional AT As Long = 0, Optional bt As Long = 0) As Double()
 Dim A_dim As Long, B_dim As Long
 Dim c() As Double
     A_dim = getDimension(A)
     B_dim = getDimension(B)
     If A_dim = 2 And B_dim = 2 Then
-        M_Dot = MM_dot(A, B, AT, BT)
+        M_Dot = MM_dot(A, B, AT, bt)
     ElseIf A_dim = 2 And B_dim = 1 Then
         M_Dot = MV_dot(A, B, AT)
     ElseIf A_dim = 1 And B_dim = 2 Then
-        M_Dot = VM_dot(A, B, BT)
+        M_Dot = VM_dot(A, B, bt)
     End If
 End Function
 
 'Compute the sum of two matrix/vector: A+B
 'Set AT/BT=1 if A/B needs to be transpose
 'if one of them is a 1D-vector, only need to set the tranpose of the matrix
-Function M_Add(A As Variant, B As Variant, Optional AT As Long = 0, Optional BT As Long = 0) As Double()
+Function M_Add(A As Variant, B As Variant, Optional AT As Long = 0, Optional bt As Long = 0) As Double()
 Dim A_dim As Long, i As Long, j As Long
 Dim c() As Double
     A_dim = getDimension(A)
@@ -4559,28 +4861,28 @@ Dim c() As Double
             c(i) = A(i) + B(i)
         Next i
     ElseIf A_dim = 2 Then
-        If AT = 0 And BT = 0 Then
+        If AT = 0 And bt = 0 Then
             ReDim c(LBound(A, 1) To UBound(A, 1), LBound(A, 2) To UBound(A, 2))
             For i = LBound(A, 1) To UBound(A, 1)
                 For j = LBound(A, 2) To UBound(A, 2)
                     c(i, j) = A(i, j) + B(i, j)
                 Next j
             Next i
-        ElseIf AT = 0 And BT = 1 Then
+        ElseIf AT = 0 And bt = 1 Then
             ReDim c(LBound(A, 1) To UBound(A, 1), LBound(A, 2) To UBound(A, 2))
             For i = LBound(A, 1) To UBound(A, 1)
                 For j = LBound(A, 2) To UBound(A, 2)
                     c(i, j) = A(i, j) + B(j, i)
                 Next j
             Next i
-        ElseIf AT = 1 And BT = 0 Then
+        ElseIf AT = 1 And bt = 0 Then
             ReDim c(LBound(A, 2) To UBound(A, 2), LBound(A, 1) To UBound(A, 1))
             For i = LBound(A, 2) To UBound(A, 2)
                 For j = LBound(A, 1) To UBound(A, 1)
                     c(i, j) = A(j, i) + B(i, j)
                 Next j
             Next i
-        ElseIf AT = 1 And BT = 1 Then
+        ElseIf AT = 1 And bt = 1 Then
             ReDim c(LBound(A, 2) To UBound(A, 2), LBound(A, 1) To UBound(A, 1))
             For i = LBound(A, 2) To UBound(A, 2)
                 For j = LBound(A, 1) To UBound(A, 1)
@@ -4639,7 +4941,7 @@ Dim c() As Double
     Erase c
 End Function
 
-Private Function MM_dot(A As Variant, B As Variant, Optional AT As Long = 0, Optional BT As Long = 0) As Double()
+Private Function MM_dot(A As Variant, B As Variant, Optional AT As Long = 0, Optional bt As Long = 0) As Double()
 Dim i As Long, j As Long, k As Long
 Dim m As Long, n As Long, p As Long, q As Long
 Dim tmp_x As Double
@@ -4650,7 +4952,7 @@ n = UBound(A, 2)
 p = UBound(B, 1)
 q = UBound(B, 2)
 
-If AT = 0 And BT = 0 Then
+If AT = 0 And bt = 0 Then
 
     ReDim c(1 To m, 1 To q)
     For i = 1 To m
@@ -4663,7 +4965,7 @@ If AT = 0 And BT = 0 Then
         Next j
     Next i
 
-ElseIf AT = 1 And BT = 0 Then
+ElseIf AT = 1 And bt = 0 Then
 
     ReDim c(1 To n, 1 To q)
     For i = 1 To n
@@ -4676,7 +4978,7 @@ ElseIf AT = 1 And BT = 0 Then
         Next j
     Next i
 
-ElseIf AT = 0 And BT = 1 Then
+ElseIf AT = 0 And bt = 1 Then
 
     ReDim c(1 To m, 1 To p)
     For i = 1 To m
@@ -4689,7 +4991,7 @@ ElseIf AT = 0 And BT = 1 Then
         Next j
     Next i
     
-ElseIf AT = 1 And BT = 1 Then
+ElseIf AT = 1 And bt = 1 Then
 
     ReDim c(1 To n, 1 To p)
     For i = 1 To n
@@ -4732,10 +5034,10 @@ MV_dot = c
 Erase c
 End Function
 
-Private Function VM_dot(A As Variant, B As Variant, Optional BT As Long = 0) As Double()
-If BT = 0 Then
+Private Function VM_dot(A As Variant, B As Variant, Optional bt As Long = 0) As Double()
+If bt = 0 Then
     VM_dot = MV_dot(B, A, 1)
-ElseIf BT = 1 Then
+ElseIf bt = 1 Then
     VM_dot = MV_dot(B, A, 0)
 End If
 End Function
@@ -6191,3 +6493,452 @@ Dim det As Double
     
     Erase A_tmp, p
 End Function
+
+
+
+
+'=== For a set of centroids x(), output a set of points that lie on/near their voronoi boundaries
+'Input:  x(1:N,1:D), N points of D-dimensional centroids
+'        DistType, metric use in deciding nearest centroid
+'        n_sample, number of points to sample in each dimension
+'        n_nearset, number of nearest neighbors to consider in kNN graph
+'Output: Voronoi_Pts(1:M,1:D), M points that lie on/near voronoi boundaries
+'        sampling_pts & sampling_idx, show sampling points and their centroid membership
+Function Voronoi_Pts(x As Variant, _
+        Optional DistType As String = "EUCLIDEAN", Optional n_sample As Long = 32, _
+        Optional sampling_pts As Variant, Optional sampling_idx As Variant, _
+        Optional n_nearest As Long = 0, Optional iter_max As Long = 5000, _
+        Optional tol As Double = 0.0001) As Double()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, p As Long, n_dimension As Long
+Dim iterate As Long, n_centroid As Long, k_nearest As Long
+Dim tmp_x As Double, tmp_y As Double, tmp_z As Double
+Dim xp() As Double
+Dim y() As Double, y_idx() As Long, z_dup() As Long
+Dim z() As Double, z_out() As Double, z_prev() As Double
+
+    n_centroid = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    n = n_sample ^ n_dimension
+    k_nearest = 3 ^ n_dimension - 1
+    If n_nearest > k_nearest Then k_nearest = n_nearest
+    
+    'Generate regularly spaced grid that spans the centroids' space
+    ReDim y(1 To n, 1 To n_dimension)
+    For p = 1 To n_dimension
+        'Find range of current dimension
+        tmp_x = Exp(70): tmp_y = -Exp(70)
+        For i = 1 To n_centroid
+            If x(i, p) < tmp_x Then tmp_x = x(i, p)
+            If x(i, p) > tmp_y Then tmp_y = x(i, p)
+        Next i
+        tmp_z = tmp_y - tmp_x
+        If tmp_z = 0 Then tmp_z = 1
+        tmp_x = tmp_x - tmp_z * 0.2
+        tmp_y = tmp_y + tmp_z * 0.2
+        ReDim xp(1 To n_sample)
+        For i = 1 To n_sample
+            xp(i) = tmp_x + (i - 1) * (tmp_y - tmp_x) / (n_sample - 1)
+        Next i
+        k = 0
+        j = 1
+        For i = 1 To n
+            k = k + 1
+            y(i, p) = xp(j)
+            If k = (n_sample ^ (n_dimension - p)) Then
+                k = 0
+                j = j + 1
+                If j > n_sample Then j = 1
+            End If
+        Next i
+    Next p
+    
+    'Identify boundaries
+    z_out = Voronoi_Pts_NK(x, y, 2, DistType, iter_max, k_nearest, tol, y_idx)
+    If IsMissing(sampling_pts) = False Then sampling_pts = y
+    If IsMissing(sampling_idx) = False Then sampling_idx = y_idx
+    Erase y, y_idx
+
+    'Identify triple points
+    For k = 3 To n_dimension + 1
+        z_prev = z_out
+        z = Voronoi_Pts_NK(x, z_out, k, DistType, iter_max, 2 * k, tol)
+        n = UBound(z)
+        If n > 0 Then
+            m = UBound(z_prev)
+            ReDim z_out(1 To m + n, 1 To n_dimension)
+            For p = 1 To n_dimension
+                For i = 1 To m
+                    z_out(i, p) = z_prev(i, p)
+                Next i
+                For i = 1 To n
+                    z_out(m + i, p) = z(i, p)
+                Next i
+            Next p
+        End If
+    Next k
+    Erase z_prev, z
+    
+    'Remove duplicate points
+    m = 0
+    n = UBound(z_out, 1)
+    ReDim z_dup(1 To n)
+    For i = 1 To n - 1
+        If z_dup(i) = 0 Then
+            For j = i + 1 To n
+                If z_dup(j) = 0 Then
+                    k = 0
+                    For p = 1 To n_dimension
+                        If Abs(z_out(j, p) - z_out(i, p)) > 0.000001 Then Exit For
+                        k = k + 1
+                    Next p
+                    If k = n_dimension Then
+                        z_dup(j) = 1
+                        m = m + 1
+                    End If
+                End If
+            Next j
+        End If
+    Next i
+
+    j = 0
+    z = z_out
+    ReDim z_out(1 To n - m, 1 To n_dimension)
+    For i = 1 To n
+        If z_dup(i) = 0 Then
+            j = j + 1
+            For p = 1 To n_dimension
+                z_out(j, p) = z(i, p)
+            Next p
+        End If
+    Next i
+
+    Voronoi_Pts = z_out
+    Erase z, z_out, z_dup
+End Function
+
+'=== For a set of centroids x() and sampling points y(), identify points
+'=== that are equidistant to nk of the centroids
+'Input:  x(1:nc,1:D), nc points of D-dimensional centroids
+'        y(1:n,1:D), n sampling points
+'        DistType, metric use in deciding nearest centroid
+'        n_nearset, number of nearest neighbors to consider in kNN graph
+'Output: Voronoi_Pts_NK(1:M,1:D), M points that lie on/near voronoi boundaries
+'        sampling_pts & sampling_idx, show sampling points and their centroid membershi
+Function Voronoi_Pts_NK(x As Variant, y() As Double, nk As Long, _
+        Optional DistType As String = "EUCLIDEAN", Optional iter_max As Long = 5000, _
+        Optional n_nearest As Long = 5, Optional tol As Double = 0.0001, Optional cluster_idx As Variant) As Double()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, p As Long
+Dim ii As Long, jj As Long, kk As Long, mm As Long, nn As Long
+Dim iterate As Long, n_centroid As Long, n_dimension As Long, k_nearest As Long
+Dim tmp_x As Double, tmp_y As Double, tmp_z As Double, learn_rate As Double
+Dim xy() As Double
+Dim y_idx() As Long
+Dim kT1 As ckdTree, k_idx() As Long, k_dist() As Double
+Dim z() As Double, z_idx() As Long, zz() As Double, z_chk() As Long, z_dup() As Long
+Dim iArr() As Long, jArr() As Long, z_invalid() As Long
+Dim xc() As Double, c_pos() As Double, grad() As Double
+Dim isSame As Boolean
+Dim node_size() As Long, node_wgtcenter As Variant, node_min() As Double, node_max() As Double
+Dim x_size() As Long
+    
+    learn_rate = 0.01
+    n_centroid = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    n = UBound(y, 1)
+    k_nearest = n_nearest
+    If k_nearest <= nk Then k_nearest = nk + 1
+
+    ReDim xc(1 To n_centroid, 1 To n_dimension)
+    ReDim xy(1 To n, 1 To n_centroid)
+    ReDim x_size(1 To n_centroid)
+    ReDim y_idx(1 To n)
+    For j = 1 To n_centroid
+        For i = 1 To n
+            xy(i, j) = -1
+        Next i
+    Next j
+    xc = x
+    
+    'Find k nearest neighbors of each data and assign to its nearest centroid
+    Set kT1 = New ckdTree
+    With kT1
+        Call .kMean_Build_Tree(y, node_size, node_wgtcenter, node_min, node_max, DistType)
+        Call .kMean_Assign_Center(y, node_size, node_wgtcenter, node_min, node_max, xc, x_size, y_idx, xy, DistType)
+        Call .kNN_All(k_idx, k_dist, y, k_nearest, 0, DistType) 'Find k nearest neighbors
+        Call .Reset
+    End With
+    Set kT1 = Nothing
+    Erase k_dist, node_size, node_wgtcenter, node_min, node_max, xc, x_size, xy
+
+    'Identify triplets that belong to 3 centroids
+    'and select their mid-points
+    j = 0
+    ReDim z(1 To n_dimension, 1 To n)
+    ReDim z_idx(1 To nk, 1 To n)
+    ReDim iArr(1 To nk - 1, 1 To n)
+    m = 0
+    For i = 1 To n
+        kk = 0
+        ReDim jArr(1 To nk - 1)
+        For k = 1 To k_nearest
+            isSame = False
+            ii = k_idx(i, k)
+            If y_idx(ii) = y_idx(i) Then isSame = True
+            If isSame = False Then
+                For jj = 1 To kk
+                    If y_idx(ii) = y_idx(jArr(jj)) Then
+                        isSame = True
+                        Exit For
+                    End If
+                Next jj
+            End If
+            If isSame = False Then
+                kk = kk + 1
+                jArr(kk) = ii
+                If kk = (nk - 1) Then Exit For
+            End If
+        Next k
+        If kk = (nk - 1) Then
+            m = m + 1
+            z_idx(1, m) = y_idx(i)
+            For jj = 1 To nk - 1
+                z_idx(jj + 1, m) = y_idx(jArr(jj))
+            Next jj
+            For p = 1 To n_dimension
+                z(p, m) = y(i, p)
+                For jj = 1 To nk - 1
+                    z(p, m) = z(p, m) + y(jArr(jj), p)
+                Next jj
+                z(p, m) = z(p, m) / nk
+            Next p
+        End If
+    Next i
+    n = m
+    If n = 0 Then
+        ReDim z(0 To 0, 1 To n_dimension)
+        Voronoi_Pts_NK = z
+        Exit Function
+    End If
+    ReDim Preserve z(1 To n_dimension, 1 To n)
+    ReDim Preserve z_idx(1 To nk, 1 To n)
+
+    If IsMissing(cluster_idx) = False Then cluster_idx = y_idx
+    Erase y_idx
+    
+    ReDim zz(1 To n_dimension)
+    ReDim c_pos(1 To nk, 1 To n_dimension)
+    ReDim z_chk(1 To n)
+    For i = 1 To n
+        For p = 1 To n_dimension
+            zz(p) = z(p, i)
+            For k = 1 To nk
+                c_pos(k, p) = x(z_idx(k, i), p)
+            Next k
+        Next p
+        For iterate = 1 To iter_max
+            ReDim xc(1 To nk)
+            ReDim grad(1 To nk, 1 To n_dimension)
+            If DistType = "EUCLIDEAN" Then
+                For k = 1 To nk
+                    For p = 1 To n_dimension
+                        xc(k) = xc(k) + (zz(p) - c_pos(k, p)) ^ 2
+                    Next p
+                    xc(k) = Sqr(xc(k))
+                Next k
+                For p = 1 To n_dimension
+                    For k = 1 To nk
+                        grad(k, p) = (zz(p) - c_pos(k, p)) / xc(k)
+                    Next k
+                Next p
+            ElseIf DistType = "MANHATTAN" Then
+                For k = 1 To nk
+                    For p = 1 To n_dimension
+                        xc(k) = xc(k) + Abs(zz(p) - c_pos(k, p))
+                    Next p
+                Next k
+                For p = 1 To n_dimension
+                    For k = 1 To nk
+                        grad(k, p) = 1
+                        If zz(p) < c_pos(k, p) Then grad(k, p) = -1
+                    Next k
+                Next p
+            Else
+                Debug.Print "Invalid Metrics."
+            End If
+            
+            tmp_y = 0
+            For p = 1 To n_dimension
+                tmp_x = 0
+                For k = 1 To nk - 1
+                    For kk = k + 1 To nk
+                        tmp_x = tmp_x + 2 * (xc(k) - xc(kk)) * (grad(k, p) - grad(kk, p))
+                    Next kk
+                Next k
+                tmp_y = tmp_y + Abs(tmp_x)
+                zz(p) = zz(p) - tmp_x * learn_rate
+            Next p
+            'Terminate when error or gradient is smaller than tolerance
+            tmp_x = 0
+            For k = 1 To nk - 1
+                For kk = k + 1 To nk
+                    tmp_x = tmp_x + Abs(xc(k) - xc(kk)) / Abs(xc(k) + xc(kk))
+                Next kk
+            Next k
+            If tmp_x < tol Or tmp_y < tol Then
+                z_chk(i) = 1
+                Exit For
+            End If
+            
+        Next iterate
+        For p = 1 To n_dimension
+            z(p, i) = zz(p)
+        Next p
+    Next i
+
+    'Find duplicated points
+    ReDim z_dup(1 To n)
+    For i = 1 To n
+        If z_dup(i) = 0 Then
+            For j = i + 1 To n
+                k = 0
+                For p = 1 To n_dimension
+                    If Abs(z(p, j) - z(p, i)) > 0.000001 Then Exit For
+                    k = k + 1
+                Next p
+                If k = n_dimension And z_dup(j) = 0 Then z_dup(j) = 1
+            Next j
+        End If
+    Next i
+    
+    'Check that pt has not moved to invalid region
+    ReDim z_invalid(1 To n)
+    For i = 1 To n
+        If z_chk(i) > 0 And z_dup(i) = 0 Then 'skip check on duplicates and non-convergents
+            m = 0
+            tmp_x = Exp(70)
+            For k = 1 To n_centroid
+                tmp_y = 0
+                If DistType = "EUCLIDEAN" Then
+                    For p = 1 To n_dimension
+                        tmp_y = tmp_y + (z(p, i) - x(k, p)) ^ 2
+                    Next p
+                ElseIf DistType = "MANHATTAN" Then
+                    For p = 1 To n_dimension
+                        tmp_y = tmp_y + Abs(z(p, i) - x(k, p))
+                    Next p
+                End If
+                If tmp_y < tmp_x Then
+                    tmp_x = tmp_y
+                    m = k
+                End If
+            Next k
+            k = 0
+            For kk = 1 To nk
+                If z_idx(kk, i) = m Then k = k + 1
+            Next kk
+            If k = 0 Then
+                z_invalid(i) = 1
+            End If
+        End If
+    Next i
+
+    j = 0: k = 0: m = 0
+    For i = 1 To n
+        If z_chk(i) = 0 Then j = j + 1
+        If z_dup(i) > 0 Then k = k + 1
+        If z_chk(i) > 0 And z_dup(i) = 0 And z_invalid(i) = 0 Then m = m + 1
+    Next i
+    If j > 0 Then Debug.Print j & "/" & n & " points did not converge."
+    'Debug.Print k & "/" & n & " duplicate values found."
+    
+    'Transpose output for better convenience in Excel
+    ReDim zz(1 To m, 1 To n_dimension)
+    k = 0
+    For i = 1 To n
+        If z_chk(i) > 0 And z_dup(i) = 0 And z_invalid(i) = 0 Then
+            k = k + 1
+            For j = 1 To n_dimension
+                zz(k, j) = z(j, i)
+            Next j
+        End If
+    Next i
+    Voronoi_Pts_NK = zz
+    Erase z, zz, z_chk, z_dup, z_invalid
+End Function
+
+
+'=== Sort spatial array x() in topological order. This is achieved by building a
+'=== k-NN graph of x(), trim it down to a minimum spanning tree, then traverse this
+'=== graph by depth first search.
+'Input:  x(1:N,1:D), D-dimensional array with N points
+'        n_nearest, number of neighors to use in kNN-Graph construction
+'        DistType, distance type to use in defining nearest neighbor, "EUCLIDEAN", "MANHATTAN".
+'Output: x(), x is replace on output in sorted order
+'        visit_order(1:N), visited_order(i)=j means node i is visited at the j-th step
+'        Sort_DFS, variant array for path visualization as lines
+Function Sort_DFS(x() As Double, Optional n_nearest As Long = 0, Optional DistType As String = "EUCLIDEAN", _
+        Optional visit_order As Variant) As Variant
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, p As Long
+Dim k_nearest As Long, n_dimension As Long
+Dim y() As Double, sort_idx() As Long
+Dim kT1 As ckdTree, k_idx() As Long, k_dist() As Double
+Dim x_visited() As Long, x_stack() As Long
+Dim vArr As Variant
+Dim MST1 As cGraphAlgo
+
+    n = UBound(x, 1)
+    n_dimension = UBound(x, 2)
+    
+    'Use a sufficiently large k so there are not too many disconnected
+    'components, but keep the kNN graph reasonably sparse to save memory
+    k_nearest = 3 ^ n_dimension - 1
+    If k_nearest < n_nearest Then k_nearest = n_nearest
+    If k_nearest > n Then k_nearest = n
+
+    'Sort data by first dimension so DFS starts from leftmost node
+    ReDim y(1 To n)
+    For i = 1 To n
+        y(i) = x(i, 1)
+    Next i
+    Call modMath.Sort_Quick_A(y, 1, n, sort_idx, 1)
+    Erase y
+
+    'Build k-nearest neighbors graph
+    Set kT1 = New ckdTree
+    With kT1
+        Call .Build_Tree(x)
+        Call .kNN_All(k_idx, k_dist, x, k_nearest, 0, DistType)
+        Call .Reset
+    End With
+    Set kT1 = Nothing
+    
+    'Build Minimum spanning tree from kNN graph and perform topological sort
+    Set MST1 = New cGraphAlgo
+    With MST1
+        Call .Init(k_idx, k_dist, x, "ADJ_LIST")
+        Call .MST_Build(k_dist, "ADJ_LIST", k_idx)
+        y = x
+        .node_pos = y '??Bug: can't directly set .node_pos=x?
+        Erase y
+        Call .Sort_DFS(x_visited, sort_idx(1), vArr)
+        Call .Reset
+    End With
+    Set MST1 = Nothing
+    
+    'Output path
+    Sort_DFS = vArr
+    
+    'Sort input array into DFS order
+    y = x
+    For i = 1 To n
+        j = x_visited(i)
+        For p = 1 To n_dimension
+            x(j, p) = y(i, p)
+        Next p
+    Next i
+    
+    'Output vertex ordering
+    If IsMissing(visit_order) = False Then visit_order = x_visited
+    
+End Function
+
