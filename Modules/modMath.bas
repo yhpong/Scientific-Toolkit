@@ -587,6 +587,48 @@ End If
 End Sub
 
 
+'Combine multple vectors column-wise into a single array
+'Syntax: Combine_Vec(vArr, x,y,z,...), where x,y,z,... are arrays of dimension
+'either(1:N) or (1:N, 1:M), output will be as saved as an array in vArr. Each
+'input must have the same number of rows N.
+Sub Combine_Vec(vArr As Variant, ParamArray vecs() As Variant)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_vec As Long, jj As Long
+Dim uArr As Variant
+    n = UBound(vecs(LBound(vecs)))
+    n_vec = 0
+    ReDim vArr(1 To n, 1 To 1)
+    For k = LBound(vecs) To UBound(vecs)
+        uArr = vecs(k)
+        If modMath.getDimension(uArr) = 1 Then
+            n_vec = n_vec + 1
+            ReDim Preserve vArr(1 To n, 1 To n_vec)
+            If UBound(uArr) = n Then
+                For i = 1 To n
+                    vArr(i, n_vec) = uArr(i)
+                Next i
+            Else
+                Debug.Print "Combine_vec: " & k & "-th item does not match in dimension."
+            End If
+        Else
+            m = UBound(uArr, 2)
+            n_vec = n_vec + m
+            ReDim Preserve vArr(1 To n, 1 To n_vec)
+            If UBound(uArr, 1) = n Then
+                For j = 1 To m
+                    jj = n_vec - m + j
+                    For i = 1 To n
+                        vArr(i, jj) = uArr(i, j)
+                    Next i
+                Next j
+            Else
+                Debug.Print "Combine_vec: " & k & "-th item does not match in dimension."
+            End If
+        End If
+        Erase uArr
+    Next k
+End Sub
+
+
 'Generate an integer array from m to n
 Function index_array(m As Long, n As Long) As Long()
     Dim i As Long
