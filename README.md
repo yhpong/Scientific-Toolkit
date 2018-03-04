@@ -248,7 +248,7 @@ The arrays vArr, vArr2 and vArr2 can then be printed to an Excel spreadsheet and
 
 Requires: [mCharting.bas](Modules/mCharting.bas)
 
-If there's one thing that I find lacking in Excel's charting ability, it's the ability to create 3-dimensional scatter plot. The closest thing you get in 3D is their surface plot, but that's far from a real scatter plot. So I decided to make my own. I include this together with some other charting utilities in the module [mCharting.bas](Modules/mCharting). 
+If there's one thing that I find lacking in Excel's charting ability, it's the ability to create 3-dimensional scatter plot. The closest thing you get in 3D is their surface plot, but that's far from a real scatter plot. So I decided to make my own. I include this together with some other charting utilities in the module [mCharting.bas](Modules/mCharting.bas). 
 
 ![3DPlot](Screenshots/3DPlot.jpg)
 
