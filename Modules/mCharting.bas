@@ -94,7 +94,7 @@ End Sub
 
 
 'Input: s, chart series, e.g. mywkbk.Sheets("Sheet2").ChartObjects("NETWORK_CHART").Chart.SeriesCollection(1)
-'       vArr(1 to N), reference values to size each dot
+'       vArr(1:N), labels to be put on each data point
 Sub Label_scatter_plot(s As Series, vArr As Variant)
 Dim i As Long, n As Long
     n = UBound(vArr, 1)
@@ -111,6 +111,11 @@ Dim i As Long, n As Long
     End With
 End Sub
 
+
+'Input: s, chart series, e.g. mywkbk.Sheets("Sheet2").ChartObjects("NETWORK_CHART").Chart.SeriesCollection(1)
+'       vArr(1:N), reference values to size each dot
+'       min_size & max_size, minimum and maximum point size
+'       isReverse, if set to TRUE, large values will show up as smaller points, vice versa.
 Sub Resize_scatter_plot(s As Series, vArr As Variant, Optional min_size As Long = 2, _
     Optional max_size As Long = 30, Optional isReverse As Boolean = False)
 Dim i As Long, n As Long
@@ -139,6 +144,11 @@ Dim tmp_x As Double, tmp_y As Double, tmp_rng As Double
     End With
 End Sub
 
+
+'Input: s, chart series, e.g. mywkbk.Sheets("Sheet2").ChartObjects("NETWORK_CHART").Chart.SeriesCollection(1)
+'       vArr(1:N), reference values to size each dot
+'       grayscale, if set to 1 then gray scale will be used instead.
+'       isReverse, if set to TRUE, large values will show up as red, small as blue.
 Sub Color_scatter_plot(s As Series, vArr As Variant, Optional grayscale As Long = 0, _
         Optional isReverse As Boolean = False)
 Dim i As Long, j As Long, n As Long, vR As Long, vG As Long, vB As Long
@@ -192,50 +202,20 @@ vR = Int(-255 * (1 - Exp(-(x - 1) * 5)) / (1 + Exp(-(x - 1) * 5)))
 End Sub
 
 
-Sub Test_Projection()
-Dim i As Long, j As Long, k As Long, m As Long, n As Long
-Dim xyz As Variant, vArr As Variant, uArr As Variant, vGrid As Variant
-Dim mywkbk As Workbook
 
-Set mywkbk = ActiveWorkbook
-
-With mywkbk.Sheets("Sheet6")
-    .Range("I6:P100000").Clear
-    
-'    n = .Range("A100000").End(xlUp).Row - 5
-'    xyz = .Range("A6").Resize(n, 3).Value
-'    vArr = Projection3D(xyz, uArr, True, , , , 2)
-'    .Range("I6").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
-'
-'    Erase xyz, vArr
-'    n = .Range("E100000").End(xlUp).Row - 5
-'    xyz = .Range("E6").Resize(n, 3).Value
-'    vArr = Projection3D(xyz, uArr, , True)
-'    .Range("L6").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
-
-    n = .Range("E100000").End(xlUp).Row - 5
-    xyz = .Range("E6").Resize(n, 3).Value
-    vArr = Projection3D(xyz, uArr, True, , 1, 1, 3, , , , , , , vGrid, True)
-    .Range("L6").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
-    .Range("O6").Resize(UBound(vGrid, 1), UBound(vGrid, 2)).Value = vGrid
-
-
-End With
-
-Set mywkbk = Nothing
-
-
-
-
-End Sub
-
-
+'Input: xyz(1:N,1:3), 3 dimesional input data with N observations
+'       vTransform, will save the transformation used when save_transfrom is set to TRUE. Which can then be used
+'                   to project another set of data by setting use_transform to TRUE.
+'Output: variant array of size (1:N, 1:2)
+'        vGrid, will save the grid lines for visualization when output_grid is set to TRUE.
+'for definitions of cam_x, theta_x, pan_x etc, see Wikipedia page on 3D projection.
 Function Projection3D(xyz As Variant, Optional vTransform As Variant, Optional save_transform As Boolean = False, _
             Optional use_transform As Boolean = False, _
             Optional cam_x As Double = 1, Optional cam_y As Double = 1, Optional cam_z As Double = 1, _
             Optional theta_x As Double = 0, Optional theta_y As Double = 0, Optional theta_z As Double = 0, _
             Optional pan_x As Double = 0, Optional pan_y As Double = 0, Optional pan_z As Double = 1, _
-            Optional vGrid As Variant, Optional output_grid As Boolean = False) As Variant
+            Optional vGrid As Variant, Optional output_grid As Boolean = False, Optional n_grid As Long = 4, _
+            Optional grid_xy As String = "MAX", Optional grid_xz As String = "MIN", Optional grid_yz As String = "MIN") As Variant
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
 Dim vArr As Variant, uArr As Variant, d() As Double
 Dim A() As Double, B() As Double
@@ -276,7 +256,7 @@ Dim pi As Double
         Next i
         Projection3D = vArr
         If output_grid = True Then
-            vGrid = Projection3D_Grid(xyz, cam_pos, A, pan_x, pan_y, pan_z, 4)
+            vGrid = Projection3D_Grid(xyz, cam_pos, A, pan_x, pan_y, pan_z, n_grid, grid_xy, grid_xz, grid_yz)
         End If
         Erase vArr, cam_pos, A, d
         Exit Function
@@ -350,7 +330,7 @@ Dim pi As Double
     Erase vArr, d, B
     
     If output_grid = True Then
-        vGrid = Projection3D_Grid(xyz, cam_pos, A, pan_x, pan_y, pan_z, 4)
+        vGrid = Projection3D_Grid(xyz, cam_pos, A, pan_x, pan_y, pan_z, n_grid, grid_xy, grid_xz, grid_yz)
     End If
     
     If save_transform = True Then
@@ -373,7 +353,8 @@ End Function
 
 
 Private Function Projection3D_Grid(xyz As Variant, cam_pos() As Double, cam_matrix() As Double, _
-            pan_x As Double, pan_y As Double, pan_z As Double, Optional n_grid As Long = 4) As Variant
+            pan_x As Double, pan_y As Double, pan_z As Double, Optional n_grid As Long = 4, _
+            Optional grid_xy As String = "MAX", Optional grid_xz As String = "MIN", Optional grid_yz As String = "MIN") As Variant
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
 Dim x_max() As Double, x_min() As Double, x() As Double, tmp_x As Double
 Dim vArr As Variant, d As Variant, uArr As Variant
@@ -399,12 +380,17 @@ Dim INFINITY
         m = 0
         ReDim d(1 To 3, 1 To 1)
         For i = 0 To n_grid
+            'Grid on xy-plane
             m = m + 2
             ReDim Preserve d(1 To 3, 1 To m)
             tmp_x = x_min(1) + i * (x_max(1) - x_min(1)) / n_grid
             d(1, m - 1) = tmp_x: d(1, m) = tmp_x
             d(2, m - 1) = x_min(2): d(2, m) = x_max(2)
-            d(3, m - 1) = x_max(3): d(3, m) = x_max(3)
+            If grid_xy = "MAX" Then
+                d(3, m - 1) = x_max(3): d(3, m) = x_max(3)
+            Else
+                d(3, m - 1) = x_min(3): d(3, m) = x_min(3)
+            End If
             m = m + 1
             
             m = m + 2
@@ -412,14 +398,23 @@ Dim INFINITY
             tmp_x = x_min(2) + i * (x_max(2) - x_min(2)) / n_grid
             d(1, m - 1) = x_min(1): d(1, m) = x_max(1)
             d(2, m - 1) = tmp_x: d(2, m) = tmp_x
-            d(3, m - 1) = x_max(3): d(3, m) = x_max(3)
+            If grid_xy = "MAX" Then
+                d(3, m - 1) = x_max(3): d(3, m) = x_max(3)
+            Else
+                d(3, m - 1) = x_min(3): d(3, m) = x_min(3)
+            End If
             m = m + 1
-
+            
+            'Grid on xz-plane
             m = m + 2
             ReDim Preserve d(1 To 3, 1 To m)
             tmp_x = x_min(1) + i * (x_max(1) - x_min(1)) / n_grid
             d(1, m - 1) = tmp_x: d(1, m) = tmp_x
-            d(2, m - 1) = x_min(2): d(2, m) = x_min(2)
+            If grid_xz = "MAX" Then
+                d(2, m - 1) = x_max(2): d(2, m) = x_max(2)
+            Else
+                d(2, m - 1) = x_min(2): d(2, m) = x_min(2)
+            End If
             d(3, m - 1) = x_min(3): d(3, m) = x_max(3)
             m = m + 1
 
@@ -427,15 +422,24 @@ Dim INFINITY
             ReDim Preserve d(1 To 3, 1 To m)
             tmp_x = x_min(3) + i * (x_max(3) - x_min(3)) / n_grid
             d(1, m - 1) = x_min(1): d(1, m) = x_max(1)
-            d(2, m - 1) = x_min(2): d(2, m) = x_min(2)
+            If grid_xz = "MAX" Then
+                d(2, m - 1) = x_max(2): d(2, m) = x_max(2)
+            Else
+                d(2, m - 1) = x_min(2): d(2, m) = x_min(2)
+            End If
             d(3, m - 1) = tmp_x: d(3, m) = tmp_x
             m = m + 1
             
+            'Grid on yz-plane
             m = m + 2
             ReDim Preserve d(1 To 3, 1 To m)
             ReDim Preserve d(1 To 3, 1 To m)
             tmp_x = x_min(2) + i * (x_max(2) - x_min(2)) / n_grid
-            d(1, m - 1) = x_min(1): d(1, m) = x_min(1)
+            If grid_yz = "MAX" Then
+                d(1, m - 1) = x_max(1): d(1, m) = x_max(1)
+            Else
+                d(1, m - 1) = x_min(1): d(1, m) = x_min(1)
+            End If
             d(2, m - 1) = tmp_x: d(2, m) = tmp_x
             d(3, m - 1) = x_min(3): d(3, m) = x_max(3)
             m = m + 1
@@ -443,7 +447,11 @@ Dim INFINITY
             m = m + 2
             ReDim Preserve d(1 To 3, 1 To m)
             tmp_x = x_min(3) + i * (x_max(3) - x_min(3)) / n_grid
-            d(1, m - 1) = x_min(1): d(1, m) = x_min(1)
+            If grid_yz = "MAX" Then
+                d(1, m - 1) = x_max(1): d(1, m) = x_max(1)
+            Else
+                d(1, m - 1) = x_min(1): d(1, m) = x_min(1)
+            End If
             d(2, m - 1) = x_min(2): d(2, m) = x_max(2)
             d(3, m - 1) = tmp_x: d(3, m) = tmp_x
             m = m + 1
