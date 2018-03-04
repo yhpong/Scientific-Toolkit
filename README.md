@@ -27,6 +27,8 @@ Now we are ready to explore the data in a number of ways:
  - Affinity Propagation
  - Minimum Spanning Tree & Planar Maximally Filtered Graph
  - Outliers Detection
+ - Tree Map
+ - 3-dimensional plot
  
 ### Principal Component Analysis
 Requires: [cPCA.cls](Modules/cPCA.cls)
@@ -240,3 +242,29 @@ Inputs that are require to build a TreeMap include: x_name(1:47) a vector of cou
     Set cTree = Nothing
 ```
 The arrays vArr, vArr2 and vArr2 can then be printed to an Excel spreadsheet and charted with x-y scatter plot, which gives you what's shown above. In the screenshot I showed both a 1:1 and a 2:1 aspect TreeMap, which will give you a slightly different arrangment of the tiles but essentially the same underlying structure. Alternatively you can also create a treemap wihtout any groupings using the method `.Create(x_GDP)`, which gives you the rightmost chart in the above screenshot.
+
+
+
+### 3-dimensional plot
+
+Requires: [mCharting.bas](Modules/mCharting.bas)
+
+If there's one thing that I find lacking in Excel's charting ability, it's the ability to create 3-dimensional scatter plot. The closest thing you get in 3D is their surface plot, but that's far from a real scatter plot. So I decided to make my own. I include this together with some other charting utilities in the module [mCharting.bas](Modules/mCharting). 
+
+![3DPlot](Screenshots/3DPlot.jpg)
+
+For demonstration, I use the real GDP per capita data of United States since 1960 from [Worldbank](https://data.worldbank.org/), and generate its 3-dimensional trajectory in state space, which is something I found quite interesting from this recent work by [Lopes et al.] (http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0191491). The output is shown in the left chart on top. Input data is an array of size (1:N, 1:3), where N is the number of observations and the 3-columns correspond to the 3 dimensions. It also accepts a whole suite of variables to control camera angles etc., according to what's described on [Wikipedia](https://en.wikipedia.org/wiki/3D_projection).
+
+One optional output is vGrid in the code below, which is a variant array that stores the grid lines if the argument after it is set to TRUE. These grid lines help to add persepctive to your 3D object and in my opinion makes it more aesthetically pleasing. Another trick you may use is to adjust the point size of each dot so the closer points appear a bit larger, this is done by the second line of code below.
+
+```
+'3-dimension data x(1:N,1:3) is projected onto a 2-dimensional variant 
+'array vArr(1:N,1:2), which can be charted in Excel as scatter plot.
+vArr = mCharting.Projection3D(x, , , , 1, 1, 3, , 0, , , , , vGrid, True)
+Call mCharting.Resize_scatter_plot(cht.SeriesCollection(1), z, 1, 10)  'change point size to scale with vector z(1:N).
+Call mCharting.Color_scatter_plot(cht.SeriesCollection(1), y) 'color each point to scale with vector y(1:N).
+```
+
+More information can be conveyed in a scatter plot by adding colors. I included this in the method `.Color_Scatter_plot` as shown in the 3rd line above. It accepts a real input vector that's the same length as your chart series, rescales it to range between 0 and 1 using min-max scheme, then color the points by using blue and red at the extremities, and yellow at the middle. This is best illustrated in the second chart above where I generate a 2-dimensional Mexican hat distribution and plot it as a 3D object.
+
+The 3D-charts here are only make-shift 2D scatter plots, so there is no native interface to rotate the object or change perspective etc. You can still do that by tuning the arguments within the method `.Projection3D`, though it may take to some experimenting to get the right parameters. You will also need to add your axis labels as text-box within the chart manually. By default, the first two dimensions in an input array is set to the horizontal and vertical axis, forming an x-y plane parallel to the screen. The third dimension is the depth axis which goes into the screen.
