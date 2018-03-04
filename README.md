@@ -235,8 +235,7 @@ Inputs that are require to build a TreeMap include: x_name(1:47) a vector of cou
     With cTree
         Call .Create_Multilevel(x_GDP, x_Group, 2, 1)  'Main command to create a 2:1 aspect TreeMap
         vArr = .Draw_Pts               'Center points of each rectangle
-        vArr2 = .Draw_Lines            'border lines of each rectangle
-        vArr3 = .Draw_Lines_Group(2)   'border lines of 2nd level grouping, can be changed to 1,2 or 3 in this example
+        vArr2 = .Draw_Lines            'border lines of each rectangle        vArr3 = .Draw_Lines_Group(2)   'border lines of 2nd level grouping, can be changed to 1,2 or 3 in this example
         Call .Reset                    'release array memory from object
     End With
     Set cTree = Nothing
@@ -253,7 +252,7 @@ If there's one thing that I find lacking in Excel's charting ability, it's the a
 
 ![3DPlot](Screenshots/3DPlot.jpg)
 
-For demonstration, I use the real GDP per capita data of United States since 1960 from [Worldbank](https://data.worldbank.org/), and generate its 3-dimensional trajectory in state space, which is something I found quite interesting from this recent work by [Lopes et al.] (http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0191491). The output is shown in the left chart on top. Input data is an array of size (1:N, 1:3), where N is the number of observations and the 3-columns correspond to the 3 dimensions. It also accepts a whole suite of variables to control camera angles etc., according to what's described on [Wikipedia](https://en.wikipedia.org/wiki/3D_projection).
+For demonstration, I use the real GDP per capita data of United States since 1960 from [Worldbank](https://data.worldbank.org/), and generate its 3-dimensional trajectory in state space, which is something I found quite interesting from this recent work by [Lopes et al.](http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0191491). The output is shown in the left chart on top. Input data is an array of size (1:N, 1:3), where N is the number of observations and the 3-columns correspond to the 3 dimensions. It also accepts a whole suite of variables to control camera angles etc., according to what's described on [Wikipedia](https://en.wikipedia.org/wiki/3D_projection).
 
 One optional output is vGrid in the code below, which is a variant array that stores the grid lines if the argument after it is set to TRUE. These grid lines help to add persepctive to your 3D object and in my opinion makes it more aesthetically pleasing. Another trick you may use is to adjust the point size of each dot so the closer points appear a bit larger, this is done by the second line of code below.
 
