@@ -1267,3 +1267,133 @@ Next i
 iQueue(1) = k
 End Sub
 '=============================================================
+
+
+'Cut tree at branch that has longest life, but limit number of clusters
+'to max_cluster if a positive integer is supplied.
+Function Assign_Cluster(Optional max_cluster As Long = -1) As Long()
+Dim k As Long, m As Long, u As Long, v As Long, cut_pt As Long
+Dim tmp_x As Double, tmp_y As Double, max_life As Double
+Dim n_cluster As Long, n_cluster_max As Long, cluster_idx() As Long
+    If max_cluster > 0 Then
+        n_cluster_max = max_cluster
+    Else
+        n_cluster_max = pn_raw
+    End If
+    m = 1
+    n_cluster = 1
+    max_life = -1
+    cut_pt = -1
+    For k = pn_raw - 1 To 1 Step -1
+        m = m + 1: tmp_x = pZ_height(k): tmp_y = pZ_height(k)
+        u = pZ(k, 2): If u > pn_raw Then tmp_x = tmp_x - pZ_height(u - pn_raw)
+        v = pZ(k, 3): If v > pn_raw Then tmp_y = tmp_y - pZ_height(v - pn_raw)
+        If tmp_y < tmp_x Then tmp_x = tmp_y
+        If tmp_x > max_life Then
+            max_life = tmp_x
+            n_cluster = m
+            cut_pt = pn_raw + k
+        End If
+        If m >= n_cluster_max Then Exit For
+    Next k
+    Call Find_cluster_idx(cluster_idx, cut_pt)
+    Call Cluster_Idx_Rearrange(cluster_idx, n_cluster)
+    Assign_Cluster = cluster_idx
+End Function
+
+
+'Cut tree to give a specific number of clusters
+Function Assign_Cluster_fix_cluster_num(n_cluster As Long) As Long()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, cut_pt As Long
+Dim cluster_idx() As Long
+    If n_cluster > pn_raw Then
+        Debug.Print "Assign_Cluster_fix_cluster_num: number of clusters larger than sample size."
+        Exit Function
+    ElseIf n_cluster = 1 Then
+        ReDim cluster_idx(1 To pn_raw)
+        For i = 1 To pn_raw
+            cluster_idx(i) = 1
+        Next i
+        Assign_Cluster_fix_cluster_num = cluster_idx
+        Exit Function
+    End If
+    cut_pt = pZ(pn_raw - n_cluster + 1, 1)
+    Call Find_cluster_idx(cluster_idx, cut_pt)
+    Call Cluster_Idx_Rearrange(cluster_idx, n_cluster)
+    Assign_Cluster_fix_cluster_num = cluster_idx
+End Function
+
+
+'Return a cluster index base on cut point
+Private Sub Find_cluster_idx(cluster_idx() As Long, cut_pt As Long)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, u As Long, v As Long
+Dim tmp_x As Double, tmp_y As Double, iArr() As Long, new_roots() As Long
+    n = 0
+    ReDim new_roots(1 To 1)
+    For k = cut_pt - pn_raw To pn_raw - 1
+        If pZ(k, 2) < cut_pt Then
+            n = n + 1
+            ReDim Preserve new_roots(1 To n)
+            new_roots(n) = pZ(k, 2)
+        End If
+        If pZ(k, 3) < cut_pt Then
+            n = n + 1
+            ReDim Preserve new_roots(1 To n)
+            new_roots(n) = pZ(k, 3)
+        End If
+    Next k
+    ReDim cluster_idx(1 To pn_raw)
+    For k = 1 To UBound(new_roots)
+        If new_roots(k) > pn_raw Then
+            Call Find_Children(new_roots(k), iArr)
+            For i = 1 To UBound(iArr)
+                cluster_idx(iArr(i)) = k
+            Next i
+        Else
+            cluster_idx(new_roots(k)) = k
+        End If
+    Next k
+End Sub
+
+'Rename cluster so largest cluster is called #1, second largest is #2 etc.
+Private Sub Cluster_Idx_Rearrange(cluster_idx() As Long, n_cluster As Long)
+Dim i As Long, j As Long, k As Long, n As Long
+Dim cluster_size() As Long, sort_idx() As Long, iArr() As Long
+    ReDim cluster_size(1 To n_cluster)
+    For i = 1 To pn_raw
+        cluster_size(cluster_idx(i)) = cluster_size(cluster_idx(i)) + 1
+    Next i
+    Call modMath.Sort_Quick_A(cluster_size, 1, n_cluster, sort_idx)
+    iArr = cluster_idx
+    For i = 1 To pn_raw
+        For j = 1 To n_cluster
+            If iArr(i) = sort_idx(j) Then
+                cluster_idx(i) = n_cluster - j + 1
+                Exit For
+            End If
+        Next j
+    Next i
+End Sub
+
+'Return all leaves under node u
+Private Sub Find_Children(u As Long, child_list() As Long, Optional first_run As Long = 1)
+Dim i As Long, j As Long, k As Long, n As Long, child_L As Long, child_R As Long
+    If first_run = 1 Then
+        ReDim child_list(0 To 0)
+        If u <= pn_raw Then Exit Sub
+    End If
+    If u <= pn_raw Then
+        n = UBound(child_list) + 1
+        If n = 1 Then
+            ReDim child_list(1 To n)
+        Else
+            ReDim Preserve child_list(1 To n)
+        End If
+        child_list(n) = u
+        Exit Sub
+    End If
+    child_L = pZ(u - pn_raw, 2)
+    child_R = pZ(u - pn_raw, 3)
+    Call Find_Children(child_L, child_list, 0)
+    Call Find_Children(child_R, child_list, 0)
+End Sub
