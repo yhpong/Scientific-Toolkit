@@ -1271,10 +1271,12 @@ End Sub
 
 'Cut tree at branch that has longest life, but limit number of clusters
 'to max_cluster if a positive integer is supplied.
-Function Assign_Cluster(Optional max_cluster As Long = -1) As Long()
+'Output: Assign_Cluster(1:N), cluster membership index of each sample
+'        n_cluster, number of clusters discovered.
+Function Assign_Cluster(n_cluster As Long, Optional max_cluster As Long = -1) As Long()
 Dim k As Long, m As Long, u As Long, v As Long, cut_pt As Long
 Dim tmp_x As Double, tmp_y As Double, max_life As Double
-Dim n_cluster As Long, n_cluster_max As Long, cluster_idx() As Long
+Dim n_cluster_max As Long, cluster_idx() As Long
     If max_cluster > 0 Then
         n_cluster_max = max_cluster
     Else
@@ -1300,7 +1302,6 @@ Dim n_cluster As Long, n_cluster_max As Long, cluster_idx() As Long
     Call Cluster_Idx_Rearrange(cluster_idx, n_cluster)
     Assign_Cluster = cluster_idx
 End Function
-
 
 'Cut tree to give a specific number of clusters
 Function Assign_Cluster_fix_cluster_num(n_cluster As Long) As Long()
