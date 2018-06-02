@@ -3937,13 +3937,13 @@ End Function
 'Input: n_bin, desired number of bins
 'Output: x_hist(1 to n_bin, 1 to 2), first number is bin position, second is probability density
 'if output_fit is set to TRUE then a third column is included to show the maximum likelihood fit
-'of the given fit_type
+'of the given fit_type: GAUSSIAN, LAPLACE, AGD, ALD, CAUCHY, KDE_GAUSSIAN, KDE_LAPLACE
 Function Histogram_Create(x As Variant, Optional n_bin As Long = 30, _
         Optional output_fit As Boolean = False, Optional fit_type As String = "GAUSSIAN") As Double()
 Dim i As Long, k As Long, n As Long
 Dim x_max As Double, x_min As Double, dx As Double
-Dim x_hist() As Double
-Dim x_loc As Double, x_scale As Double, x_asym As Double, likelihood As Double
+Dim x_hist() As Double, bin_avg() As Double
+Dim x_loc As Double, x_scale As Double, x_asym As Double, likelihood As Double, strKernelType As String
     n = UBound(x, 1) - LBound(x, 1) + 1
     x_max = -Exp(70)
     x_min = Exp(70)
@@ -3953,26 +3953,201 @@ Dim x_loc As Double, x_scale As Double, x_asym As Double, likelihood As Double
     Next i
     dx = 1.005 * (x_max - x_min) / n_bin
     ReDim x_hist(1 To n_bin, 1 To 2)
+    ReDim bin_avg(1 To n_bin)
     For i = LBound(x, 1) To UBound(x, 1)
         k = 1 + Int((x(i) - x_min) / dx)
         x_hist(k, 2) = x_hist(k, 2) + 1
+        bin_avg(k) = bin_avg(k) + x(i)
     Next i
     For k = 1 To n_bin
-        x_hist(k, 1) = x_min + (k - 0.5) * dx
+        If x_hist(k, 2) > 0 Then
+            x_hist(k, 1) = bin_avg(k) / x_hist(k, 2)
+        Else
+            x_hist(k, 1) = x_min + (k - 0.5) * dx
+        End If
         x_hist(k, 2) = x_hist(k, 2) / (n * dx)
     Next k
     
     If output_fit = True Then
-        likelihood = Prob_Fit(x, x_loc, x_scale, x_asym, fit_type)
-        ReDim Preserve x_hist(1 To n_bin, 1 To 3)
-        For i = 1 To n_bin
-            x_hist(i, 3) = Prob_x(x_hist(i, 1), x_loc, x_scale, x_asym, VBA.UCase(fit_type))
-        Next i
+        If VBA.Left$(fit_type, 3) = "KDE" Then
+            strKernelType = VBA.Right$(fit_type, VBA.Len(fit_type) - 4)
+            ReDim bin_avg(1 To n_bin)
+            For i = 1 To n_bin
+                bin_avg(i) = x_hist(i, 1)
+            Next i
+            bin_avg = KernelDensityEst_CV(x, bin_avg, False, strKernelType)
+            ReDim Preserve x_hist(1 To n_bin, 1 To 3)
+            For i = 1 To n_bin
+                x_hist(i, 3) = bin_avg(i, 2)
+            Next i
+            
+        Else
+            likelihood = Prob_Fit(x, x_loc, x_scale, x_asym, fit_type)
+            ReDim Preserve x_hist(1 To n_bin, 1 To 3)
+            For i = 1 To n_bin
+                x_hist(i, 3) = Prob_x(x_hist(i, 1), x_loc, x_scale, x_asym, fit_type)
+            Next i
+        End If
     End If
     
     Histogram_Create = x_hist
     Erase x_hist
 End Function
+
+
+'Kernel Density Estimation of 1D vector x()
+'Input: x(1:N), 1D vector of length N
+'       x_pts, if default_bin=TRUE, x_pts should be entered as the desired number of bins, default is 30
+'              if default_bin=FALSE, x_pts should be entered as a 1D vector of desired locations to evaluate the density at
+'       h_bandwidth, bandwidth used, default is rule of thumb
+'       strKernel, type of kernel, supports "GAUSSIAN", "LAPALCE"
+'Output: double array of size (1:bin, 1 to 2), first column is the locations of bins, second column is the pdf
+Function KernelDensityEst(x As Variant, Optional x_pts As Variant, Optional default_bin As Boolean = True, _
+            Optional h_bandwidth As Double = -1, Optional strKernel = "GAUSSIAN") As Double()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_bin As Long
+Dim x_avg As Double, x_sd As Double, x_min As Double, x_max As Double, x_width As Double
+Dim tmp_x As Double, tmp_y As Double, tmp_z As Double
+Dim x_pdf() As Double, x_sample() As Double
+Dim pi As Double
+    pi = 3.14159265358979
+    n = UBound(x, 1)
+    
+    'Choose bandwidth
+    If h_bandwidth <= 0 Then
+        'Find sample std dev of x() and use "rule of thumb"
+        x_avg = 0: x_sd = 0
+        For i = 1 To n
+            tmp_x = x(i)
+            x_avg = x_avg + tmp_x
+            x_sd = x_sd + tmp_x ^ 2
+        Next i
+        x_sd = Sqr((x_sd - (x_avg ^ 2) / n) / (n - 1))
+        x_avg = x_avg / n
+        x_width = x_sd * ((4# / (3 * n)) ^ 0.2)
+    Else
+        x_width = h_bandwidth
+    End If
+    
+    'Choose points to evaluate pdf
+    If default_bin = True Then
+        x_min = Exp(70): x_max = -x_min
+        For i = 1 To n
+            tmp_x = x(i)
+            If tmp_x < x_min Then x_min = tmp_x
+            If tmp_x > x_max Then x_max = tmp_x
+        Next i
+        n_bin = 30
+        If VBA.IsMissing(x_pts) = False Then
+            If VBA.IsArray(x_pts) = False Then n_bin = x_pts
+        End If
+        ReDim x_sample(1 To n_bin)
+        tmp_x = (x_max - x_min) / (n_bin - 1)
+        For i = 1 To n_bin
+            x_sample(i) = x_min + (i - 1) * tmp_x
+        Next i
+    Else
+        n_bin = UBound(x_pts) - LBound(x_pts) + 1
+        ReDim x_sample(1 To n_bin)
+        For i = LBound(x_pts) To UBound(x_pts)
+            x_sample(i - LBound(x_pts) + 1) = x_pts(i)
+        Next i
+    End If
+    
+    'Run kernel
+    ReDim x_pdf(1 To n_bin, 1 To 2)
+    If strKernel = "GAUSSIAN" Then
+        tmp_z = 2 * (x_width ^ 2)
+        For i = 1 To n_bin
+            tmp_x = 0
+            tmp_y = x_sample(i)
+            For j = 1 To n
+                tmp_x = tmp_x + Exp(-((tmp_y - x(j)) ^ 2) / tmp_z)
+            Next j
+            x_pdf(i, 1) = tmp_y
+            x_pdf(i, 2) = tmp_x / (n * Sqr(2 * pi) * x_width)
+        Next i
+    ElseIf strKernel = "LAPLACE" Then
+        tmp_z = x_width / Sqr(2)
+        For i = 1 To n_bin
+            tmp_x = 0
+            tmp_y = x_sample(i)
+            For j = 1 To n
+                tmp_x = tmp_x + Exp(-Abs(tmp_y - x(j)) / tmp_z)
+            Next j
+            x_pdf(i, 1) = tmp_y
+            x_pdf(i, 2) = tmp_x / (n * Sqr(2) * x_width)
+        Next i
+    Else
+        Debug.Print "KernelDensityEst: Invalid kerneltype."
+        Exit Function
+    End If
+    
+    KernelDensityEst = x_pdf
+End Function
+
+
+'Use K-fold cross validation to find optimal bandwidth for KDE
+Function KernelDensityEst_CV(x As Variant, Optional x_pts As Variant, Optional default_bin As Boolean = True, _
+            Optional strKernel = "GAUSSIAN", Optional k_fold As Long = 10) As Double()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, iterate As Long
+Dim x_avg As Double, x_sd As Double, x_width As Double, x_width_base As Double
+Dim tmp_x As Double, tmp_y As Double, tmp_z As Double
+Dim x_pdf() As Double
+Dim x_likelihood As Double, best_likelihood As Double, best_width As Double
+Dim i_list() As Long, i_validate() As Long, i_train() As Long, x_train() As Double, x_test() As Double, skip_k As Boolean
+    n = UBound(x, 1)
+    
+    'Find rule of thumb bandwidth
+    x_avg = 0: x_sd = 0
+    For i = 1 To n
+        tmp_x = x(i)
+        x_avg = x_avg + tmp_x
+        x_sd = x_sd + tmp_x ^ 2
+    Next i
+    x_sd = Sqr((x_sd - (x_avg ^ 2) / n) / (n - 1))
+    x_width_base = x_sd * ((4# / (3 * n)) ^ 0.2)
+    
+    'Test differnt values of bandwidth rel. to rule of thumb (1/4, 1/2, 1, 2 ,4, 8)
+    'using cross validation for maximum likelihood
+    i_list = index_array(1, n)
+    best_likelihood = -Exp(70)
+    For iterate = 1 To 6
+    
+        DoEvents
+        Application.StatusBar = "KernelDensityEst_CV: " & iterate & "/" & 6
+        
+        x_width = x_width_base * (2 ^ (iterate - 3))
+        x_likelihood = 0
+        skip_k = False
+        For k = 1 To k_fold
+            Call CrossValidate_set(k, k_fold, i_list, i_validate, i_train)
+            Call Filter_Array(x, x_train, i_train)
+            Call Filter_Array(x, x_test, i_validate)
+            x_pdf = KernelDensityEst(x_train, x_test, False, x_width, strKernel)
+            For i = 1 To UBound(x_pdf, 1)
+                If x_pdf(i, 2) > 0 Then
+                    x_likelihood = x_likelihood + Log(x_pdf(i, 2))
+                Else
+                    x_likelihood = -Exp(70)
+                    skip_k = True
+                    Exit For
+                End If
+            Next i
+            If skip_k = True Then Exit For
+        Next k
+        
+        If x_likelihood > best_likelihood Then
+            best_likelihood = x_likelihood
+            best_width = x_width
+        End If
+        
+    Next iterate
+    Erase i_list, i_validate, i_train, x_train, x_test
+    Debug.Print "KernelDensityEst_CV: best bandwidth=" & best_width & " (" & best_width / x_width_base & " rule of thumb)"
+    KernelDensityEst_CV = KernelDensityEst(x, x_pts, default_bin, best_width, strKernel)
+    Application.StatusBar = False
+End Function
+
 
 
 'Return the log likelihood of a pdf fit to a 1-D real value array x()
