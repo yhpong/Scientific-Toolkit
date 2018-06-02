@@ -248,6 +248,8 @@ The arrays vArr, vArr2 and vArr2 can then be printed to an Excel spreadsheet and
 
 Requires: [mCharting.bas](Modules/mCharting.bas),  [3DPlot.xlam](Modules/3DPlot.xlam)
 
+Update: An addin [3DPlot.xlam](Modules/3DPlot.xlam) was created so now you can easily create 3D-charts directly in the interface. For illustration see the corresponding xlsm file.
+
 If there's one thing that I find lacking in Excel's charting ability, it's the ability to create 3-dimensional scatter plot. The closest thing you get in 3D is their surface plot, but that's far from a real scatter plot. So I decided to make my own. I include this together with some other charting utilities in the module [mCharting.bas](Modules/mCharting.bas). 
 
 ![3DPlot](Screenshots/3DPlot.jpg)
@@ -270,22 +272,22 @@ The 3D-charts here are only make-shift 2D scatter plots, so there is no native i
 
 
 
-### Histogtram
+### Histogram
 
 ![Histogram](Screenshots/Histogram.jpg)
 
-If you have study any kind of statistics you have certainly seen a histogram. It's a great tool to provide intuition on how data are distributed. For instance you can create a histogram of stock market returns to see how likely a stock market crash occur. A closely related question of fitting a probability density is also key to doing more advance analysis.
+If you have studied any kind of statistics you have certainly seen a histogram before. It's a great tool to provide intuition on how data are distributed. For instance you can create a histogram of stock market returns to see how often a stock market crash occured. A closely related question of fitting a probability density is also key to doing more advance analysis.
 
 In my basic module [modMath.bas](Modules/modMath.bas), you can create 1-dimensional histogram with one line
 `
 x_hist = Histogram_Create(x, 30, True, "GAUSSIAN")
 `
-Thhis codes creates a histogram of 30 bins on raw data x(), and also fit a GAUSSIAN probability density function to it. The output is an array with columns whcih you can chart in Excel. In the screenshot above, I have created two histograms. The left one is on artificial gaussian mixture, fit with Kernel Density Estimat. The right chart is the distribution of S&P500 Earnigns Yield (from Robert Shiller's website), fitted with an asymetric Laplace distribution. 
+This code creates a histogram of 30 bins on raw data x(), and also fits a GAUSSIAN probability density function to it. The output is an array with three columns which you can easily chart in Excel. In the screenshot above, I have created two histograms. The left one is an artificial gaussian mixture, fitted with Kernel Density Estimate. The right chart is the distribution of S&P500 Earnings Yield (from Robert Shiller's website), fitted with an asymmetric Laplace distribution. 
 
-Currently the fit type supports:
-"GAUSSIAN"    : Normal distribution
-"LAPLACE"     : Lapalce distribution
-"AGD"         : Asymmetric Gaussian
-"ALD"         : Asymmetric Laplace
-"KDE_GAUSSIAN": Kernel Density Estimation with Gassian kernel
-"KDE_LAPLACE" : Kernel Density Estimation with Exponential kernel
+Currently the fit type supports:  
+"GAUSSIAN"    : Normal distribution  
+"LAPLACE"     : Lapalce distribution  
+"AGD"         : Asymmetric Gaussian  
+"ALD"         : Asymmetric Laplace  
+"KDE_GAUSSIAN": Kernel Density Estimation with Gassian kernel  
+"KDE_LAPLACE" : Kernel Density Estimation with Exponential kernel  
