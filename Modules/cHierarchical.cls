@@ -51,6 +51,20 @@ Public Property Get link_type() As String
 link_type = plink_type
 End Property
 
+Public Property Get Size() As Long
+    Size = pn_raw
+End Property
+
+Public Property Get leaves_list(i As Long) As Long()
+Dim child_list() As Long
+    If i > pn_raw Then
+        Call Find_Children(i, child_list, 1)
+    Else
+        ReDim child_list(1 To 1)
+        child_list(1) = i
+    End If
+    leaves_list = child_list
+End Property
 
 '=== Direct Implementation of agglomoerative clustering
 'Input: label() is the string labels of the N data points
