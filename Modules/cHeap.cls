@@ -221,3 +221,30 @@ Dim i As Long, n As Long, j As Long, iArr() As Long
         Next i
     End If
 End Sub
+
+
+'===========================================================================================
+'Update data point id by value x, then move it up the tree until heap property is satisfied
+'===========================================================================================
+Sub Update(x As Double, id As Long)
+Dim i As Long, n As Long, parent As Long
+    n = -1
+    For i = 1 To pSize
+        If pQueueID(i) = id Then
+            pQueue(i) = x
+            n = i
+            Exit For
+        End If
+    Next i
+    If n = -1 Then
+        Debug.Print id & " not found in Heap."
+        Exit Sub
+    End If
+    If pSize = 1 Then Exit Sub
+    
+    If pHType = "MIN" Then
+        Call Heapify_Min(n)
+    ElseIf pHType = "MAX" Then
+        Call Heapify_Max(n)
+    End If
+End Sub
