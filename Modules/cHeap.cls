@@ -248,3 +248,18 @@ Dim i As Long, n As Long, parent As Long
         Call Heapify_Max(n)
     End If
 End Sub
+
+'========================================
+'Peep at value of data point id
+'========================================
+Function Peep(id As Long) As Double
+Dim i As Long
+    For i = 1 To pSize
+        If pQueueID(i) = id Then
+            Peep = pQueue(i)
+            Exit Function
+        End If
+    Next i
+    Debug.Print id & " not found in Heap."
+End Function
+
