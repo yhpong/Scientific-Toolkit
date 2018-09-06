@@ -57,7 +57,7 @@ Public Property Get n_dimension() As Long
     n_dimension = pn_dimension
 End Property
 
-Public Property Get cluster_mean() As Double
+Public Property Get cluster_mean() As Double()
     cluster_mean = pcluster_mean
 End Property
 
