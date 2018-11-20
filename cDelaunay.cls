@@ -9,10 +9,20 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Explicit
 
+'*********************************************************************************
+'Main reference:
+'1. "Primitives for the Manipulation of General Subdivisions and the
+'   Computation of Voronoi Diagrams", Guibas and Stolfi
+'2. Quad-Edge Data Structure and Library, Paul Heckbert
+'   http://www.cs.cmu.edu/afs/andrew/scs/cs/15-463/2001/pub/src/a2/quadedge.html
+'*********************************************************************************
+
 Private pn As Long, pn_dimension As Long, pn_edge As Long
-Private px() As Double
-Private px_sort_idx() As Long
-Private pEdge_L As cQuadEdge, pEdge_R As cQuadEdge
+Private px() As Double          'vertex positions (1:N,1:2)
+Private px_value() As Double      'value (height, density..etc.) at each vertex (1:N)
+Private px_sort_idx() As Long   'order of vertices (1:N)
+Private pEdge_L As cQuadEdge    'CCW convex hull edge out of leftmost vertex
+Private pEdge_R As cQuadEdge    'CW convex hull edge out of rightmost vertex
 Private Const pz_tol = 0.000000000000001 '1E-15
 
 Sub Reset()
@@ -20,7 +30,7 @@ Dim i As Long
     pn = 0
     pn_dimension = 0
     pn_edge = 0
-    Erase px, px_sort_idx
+    Erase px, px_sort_idx, px_value
     Set pEdge_L = Nothing
     Set pEdge_R = Nothing
 End Sub
@@ -33,26 +43,31 @@ Public Property Get n_edge() As Long
     n_edge = pn_edge
 End Property
 
-Function Plot(Optional node_list As Variant) As Variant
+'=========================================================================
+'Plot the grid-lines of delaunay triangulation as scatter chart in Excel
+'node_list(1:M) stores the corresponding integer pointer to input dataset
+'=========================================================================
+Sub Plot(vArr As Variant, Optional node_list As Variant)
 Dim i As Long, j As Long, k As Long, m As Long
-Dim vArr As Variant
 Dim EdgeVisited As Collection
     Call Traverse_All_Edges(EdgeVisited)
     Call EdgeList_2_ExcelChart(vArr, EdgeVisited, node_list)
-    Plot = vArr
     Set EdgeVisited = Nothing
-End Function
+End Sub
 
-Function Plot_DFS(Optional node_list As Variant) As Variant
+'=========================================================================
+'Plot the grid-lines of a DFS-path as scatter chart in Excel
+'node_list(1:M) stores the corresponding integer pointer to input dataset
+'=========================================================================
+Function Plot_DFS(vArr As Variant, Optional node_list As Variant) As Variant
 Dim i As Long, j As Long, k As Long, m As Long
-Dim vArr As Variant
 Dim EdgeVisited As Collection
     Call Traverse_All_Nodes(EdgeVisited)
     Call EdgeList_2_ExcelChart(vArr, EdgeVisited, node_list)
-    Plot_DFS = vArr
     Set EdgeVisited = Nothing
 End Function
 
+'Convert an ordered list of edges into chartable x-y positions
 Private Sub EdgeList_2_ExcelChart(vArr As Variant, EdgeVisited As Collection, node_list As Variant)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
 Dim u As Long, v As Long, w As Long, u_prev As Long, v_prev As Long
@@ -106,7 +121,7 @@ Dim A As cQuadEdge, uArr As Variant
     Application.StatusBar = False
 End Sub
 
-
+'Traverse all edges in the Delaunay tessellation starting from the leftmost edge
 Private Sub Traverse_All_Edges(EdgeVisited As Collection, Optional reset_visit As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long
 Dim u As Long, v As Long, w As Long
@@ -155,7 +170,7 @@ Dim EdgeStack As Collection
     Application.StatusBar = False
 End Sub
 
-
+'Traverse all nodes in the Delaunay tessellation starting from the leftmost node using depth-first-search
 Private Sub Traverse_All_Nodes(EdgeVisited As Collection, Optional reset_visit As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long
 Dim u As Long, v As Long, w As Long
@@ -208,10 +223,21 @@ Dim isVisited() As Long
 End Sub
 
 
-Sub Init(x As Variant)
+'========================================================================
+'Create a Delaunay tessellation of a set of 2-D points
+'Duplicates need to be resolved beforehand
+'========================================================================
+'Input:
+'x(1:N,1:2), x-y positions of the N vertices
+'x_value(1:N), field values of the N vertices
+Sub Init(x As Variant, Optional x_value As Variant = Null)
 Dim i As Long, j As Long, k As Long, m As Long
 Dim A As cQuadEdge, B As cQuadEdge, C As cQuadEdge
 Dim tmp_vec() As Double, iArr() As Long, xArr() As Double, tmp_x As Double
+    If UBound(x, 2) <> 2 Then
+        Debug.Print "cDelaunay: only supports 2-dimensional at the moment."
+        Exit Sub
+    End If
     pn = UBound(x, 1)
     pn_dimension = UBound(x, 2)
     ReDim px(1 To pn, 1 To pn_dimension)
@@ -255,17 +281,18 @@ Dim tmp_vec() As Double, iArr() As Long, xArr() As Double, tmp_x As Double
         End If
     Loop
     
-    With ActiveWorkbook.Sheets("Sheet4")
+    If Not IsNull(x_value) Then
+        ReDim px_value(1 To pn)
         For i = 1 To pn
-            .Range("B" & 2 + i).Value = px_sort_idx(i)
+            px_value(i) = x_value(i)
         Next i
-    End With
+    End If
     
     Call Delaunay_Step(px_sort_idx, pEdge_L, pEdge_R)
     Application.StatusBar = False
 End Sub
 
-
+'Recursive divide and conquer algorithm to create Delaunay Triangulation
 Private Sub Delaunay_Step(x_ptr() As Long, Edge_L As cQuadEdge, Edge_R As cQuadEdge)
 Dim i As Long, j As Long, k As Long, n As Long, n_L As Long, n_R As Long
 Dim A As cQuadEdge, B As cQuadEdge, C As cQuadEdge
@@ -343,17 +370,6 @@ Dim vArr As Variant, tmp_x As Double, tmp_y As Double
         If ldi.Org = ldo.Org Then Set ldo = basel.Sym
         If rdi.Org = rdo.Org Then Set rdo = basel
         
-'        If basel.Dest = 108 And basel.Dest = 108 Then ' Or basel.Org = 109 Or basel.Org = 108 Then
-'            Set pEdge_L = ldo
-'            Set pEdge_R = rdo
-'            vArr = Me.Plot
-'            With ActiveWorkbook.Sheets("Sheet1")
-'                .Range("E3").Resize(1048500, 3).Clear
-'                .Range("E3").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
-'            End With
-'            End
-'        End If
-        
         Do
 
             Set lcand = basel.Sym.Onext
@@ -395,6 +411,11 @@ Dim vArr As Variant, tmp_x As Double, tmp_y As Double
 
 End Sub
 
+
+'==================================================================================
+'Basic Quad-Edge operations
+'These follow the conventions in Guibas and Stolfi, see illustrations therein
+'==================================================================================
 Private Sub Splice(A As cQuadEdge, B As cQuadEdge)
 Dim t1 As cQuadEdge, t2 As cQuadEdge, t3 As cQuadEdge, t4 As cQuadEdge
 Dim alpha As cQuadEdge, beta As cQuadEdge
@@ -513,6 +534,78 @@ Private Function isValid(A As cQuadEdge, basel As cQuadEdge)
     isValid = isRightOf(A.Dest, basel)
 End Function
 
+'Returns the three vertex u-v-w that encapsulate point (x,y) in a delaunay triangle,
+'also returns tgt_edge whose left face is the triangle
+Private Sub Locate_xy(x As Double, y As Double, tgt_edge As cQuadEdge, _
+            u As Long, v As Long, w As Long, Optional init_edge As Variant = Null)
+Dim iterate As Long
+Dim A As cQuadEdge
+Dim tmp_x As Double, tmp_y As Double
+    'Check that point lies inside the convex-hull, returns nothing otherwise
+    Set A = pEdge_L
+    Do
+        If isRightOf_xy(x, y, A) Then
+            Set tgt_edge = Nothing
+            u = A.Org: v = A.Dest: w = -1
+            Exit Sub
+        End If
+        Set A = A.Rprev
+        If A Is pEdge_L Then Exit Do
+    Loop
+    
+    If VBA.IsNull(init_edge) Then
+        Set A = pEdge_L
+    Else
+        Set A = init_edge
+    End If
+    
+    Do
+        If (x = px(A.Org, 1) And y = px(A.Org, 2)) Or (x = px(A.Dest, 1) And y = px(A.Dest, 2)) Then
+            Set tgt_edge = A
+            Exit Do
+        ElseIf isRightOf_xy(x, y, A) Then
+            Set A = A.Sym
+        ElseIf Not isRightOf_xy(x, y, A.Onext) Then
+            Set A = A.Onext
+        ElseIf Not isRightOf_xy(x, y, A.Dprev) Then
+            Set A = A.Dprev
+        Else
+            Set tgt_edge = A
+            Exit Do
+        End If
+    Loop
+    With tgt_edge
+        u = .Org: v = .Dest: w = .Lnext.Dest
+    End With
+    Application.StatusBar = False
+End Sub
+
+    Private Function isRightOf_xy(x As Double, y As Double, A As cQuadEdge) As Boolean
+        isRightOf_xy = isCCW_xy(x, y, A.Dest, A.Org)
+    End Function
+    
+    Private Function isLeftOf_xy(x As Double, y As Double, A As cQuadEdge) As Boolean
+        isLeftOf_xy = isCCW_xy(x, y, A.Org, A.Dest)
+    End Function
+    
+    Private Function isCCW_xy(x As Double, y As Double, v As Long, w As Long) As Boolean
+    Dim tmp_x As Double
+        If x = px(v, 1) And x = px(w, 1) Then
+            isCCW_xy = False
+        ElseIf y = px(v, 2) And y = px(w, 2) Then
+            isCCW_xy = False
+        Else
+            tmp_x = px(v, 1) * px(w, 2) - px(v, 2) * px(w, 1) _
+                    - (x * px(w, 2) - y * px(w, 1)) _
+                    + (x * px(v, 2) - y * px(v, 1))
+            If tmp_x > 0 Then
+                isCCW_xy = True
+            Else
+                isCCW_xy = False
+            End If
+        End If
+    End Function
+
 Private Sub Calc_Center(x As Double, y As Double, u As Long, v As Long, w As Long)
 Dim tmp_det As Double, d_uv As Double, d_uw As Double
     tmp_det = px(v, 1) * px(w, 2) - px(v, 2) * px(w, 1)
@@ -548,7 +641,9 @@ Dim tmp_x As Double, tmp_y As Double
     Next A
 End Sub
 
-
+'=========================================
+'Basic math operations
+'=========================================
 Private Sub Sort_Quick_A(vArray As Variant, inLow As Long, inHi As Long, sort_index() As Long, Optional first_run As Long = 1)
 Dim pivot   As Double
 Dim tmpSwap As Variant
@@ -589,29 +684,34 @@ Dim tmpLow As Long, tmpHi As Long, i As Long
 End Sub
 
 
-
+'===============================================
+'Delaunay Tessellation Field Estimators, Schaap
+'===============================================
 Sub Density_Est(x_density() As Double)
 Dim i As Long, j As Long, k As Long
+Dim tmp_x As Double
 Dim A As cQuadEdge
 Dim EdgeVisited As Collection
     Call Traverse_All_Nodes(EdgeVisited)
     ReDim x_density(1 To pn)
     Set A = EdgeVisited(1)
-    x_density(A.Org) = 1# / Area_around_Vertex(A, "ORG")
+    tmp_x = Area_around_Vertex(A, "ORG", k)
+    x_density(A.Org) = 3# / tmp_x
     Do While EdgeVisited.Count > 0
         Set A = EdgeVisited(1)
         EdgeVisited.Remove (1)
-        x_density(A.Dest) = 1# / Area_around_Vertex(A, "DEST")
+        tmp_x = Area_around_Vertex(A, "DEST", k)
+        x_density(A.Dest) = 3# / tmp_x
     Loop
     Set EdgeVisited = Nothing
 End Sub
 
-    Private Function Area_around_Vertex(A As cQuadEdge, strType As String) As Double
+    Private Function Area_around_Vertex(A As cQuadEdge, strType As String, n_neighbor As Long) As Double
     Dim i As Long, j As Long, k As Long
     Dim u As Long, v As Long, w As Long
     Dim tmp_x As Double
     Dim A_copy As cQuadEdge, B As cQuadEdge, C As cQuadEdge
-        tmp_x = 0
+        tmp_x = 0: n_neighbor = 0
         Set A_copy = A
         If strType = "ORG" Then
             u = A_copy.Org
@@ -621,16 +721,10 @@ End Sub
         End If
         Set C = A_copy
         Do
-            v = C.Dest
-            k = 1: Set B = C
-            Do
-                k = k + 1
-                If k > 3 Then Exit Do
-                Set B = B.Lnext
-                If B.Dest = u Then Exit Do
-                w = B.Dest
-            Loop
-            If k = 3 Then
+            If C.Lnext.Lnext.Dest = u Then
+                v = C.Dest
+                w = C.Lnext.Dest
+                n_neighbor = n_neighbor + 1
                 tmp_x = tmp_x + Calc_Area_Triangle(u, v, w)
             End If
             Set C = C.Onext
@@ -687,3 +781,47 @@ Dim tmp_x As Double, tmp_y As Double
 
 End Sub
 
+'Input:
+'n_x,n_y
+'Output: x_value(1:n_y,1:n_x) , intrapolated values on grid
+Sub Intrapolate_Grid(x_value As Variant, n_x As Long, n_y As Long, _
+            min_x As Variant, max_x As Variant, min_y As Variant, max_y As Variant)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long
+Dim u As Long, v As Long, w As Long
+Dim tmp_x As Double, tmp_y As Double, tmp_z As Double
+Dim d_x As Double, d_y As Double
+Dim A As cQuadEdge, B As cQuadEdge
+    ReDim x_value(1 To n_y, 1 To n_x)
+    Set B = pEdge_L
+    d_x = (max_x - min_x) / (n_x - 1)
+    d_y = (max_y - min_y) / (n_y - 1)
+    For i = 1 To n_y
+        tmp_y = max_y - (i - 1) * d_y
+        For j = 1 To n_x
+            tmp_x = min_x + (j - 1) * d_x
+            Call Locate_xy(tmp_x, tmp_y, A, u, v, w, B)
+            If Not A Is Nothing Then
+                tmp_z = Intrapolate_xy(tmp_x, tmp_y, u, v, w)
+                x_value(i, j) = tmp_z
+                Set B = A
+            Else
+                Set B = pEdge_L
+            End If
+        Next j
+    Next i
+    Set A = Nothing
+    Set B = Nothing
+End Sub
+
+Private Function Intrapolate_xy(x As Double, y As Double, u As Long, v As Long, w As Long) As Double
+Dim grad_x As Double, grad_y As Double
+    Call Intrapolate_grad(grad_x, grad_y, u, v, w)
+    Intrapolate_xy = px_value(u) + grad_x * (x - px(u, 1)) + grad_y * (y - px(u, 2))
+End Function
+
+Private Sub Intrapolate_grad(grad_x As Double, grad_y As Double, u As Long, v As Long, w As Long)
+grad_x = (px_value(v) - px_value(u)) * (px(w, 2) - px(u, 2)) - (px_value(w) - px_value(u)) * (px(v, 2) - px(u, 2))
+grad_y = (px_value(v) - px_value(u)) * (px(w, 1) - px(u, 1)) - (px_value(w) - px_value(u)) * (px(v, 1) - px(u, 1))
+grad_x = grad_x / ((px(v, 1) - px(u, 1)) * (px(w, 2) - px(u, 2)) - (px(w, 1) - px(u, 1)) * (px(v, 2) - px(u, 2)))
+grad_y = grad_y / ((px(v, 2) - px(u, 2)) * (px(w, 1) - px(u, 1)) - (px(w, 2) - px(u, 2)) * (px(v, 1) - px(u, 1)))
+End Sub
