@@ -1,6 +1,8 @@
 Attribute VB_Name = "mPlotContour"
 Option Explicit
 
+'Requires: cDelaunay, cQuadEdge, cQuadEdge_Quad
+
 '==========================================================================================
 'Use Marching Squares algorithm to create 2D contour plot in Excel
 'Plot_Contour_2D() is used to plot a function with analytic form
@@ -468,7 +470,7 @@ Function Plot_Contour_2DMatrix(g_matrix As Variant, _
             Optional min_x As Variant = Null, Optional max_x As Variant = Null, _
             Optional min_y As Variant = Null, Optional max_y As Variant = Null, _
             Optional isSeparate As Boolean = False) As Variant
-Dim i As Long, j As Long, k As Long, m As Long, n As Long
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, mm As Long
 Dim x_min() As Double, x_max() As Double, dx() As Double, x_bin() As Long
 Dim tgt_value As Double, tgt_interval As Double, z_max As Double, z_min As Double
 Dim vArr As Variant, uArr As Variant
@@ -553,8 +555,8 @@ Dim tmp_x As Double, tmp_y As Double
             ReDim uArr(1 To 2, 1 To 1)
             tgt_value = z_min + (i - 1) * tgt_interval
             Call Plot_Contour_2DMatrix_isoline(g_matrix, uArr, tgt_value, x_min, x_max, x_bin, dx)
-            m = UBound(uArr, 2)
-            If m > 1 Then
+            mm = UBound(uArr, 2)
+            If mm > 1 Then
                 If isClean = True Then
                     Call Plot_Contour_2D_CleanUp(uArr)
                 End If
@@ -568,10 +570,10 @@ Dim tmp_x As Double, tmp_y As Double
                         End If
                     Next j
                 End If
-                m = UBound(uArr, 2)
-                If m > UBound(vArr, 2) Then ReDim Preserve vArr(1 To 2 * n_tgt, 0 To m)
+                mm = UBound(uArr, 2)
+                If mm > UBound(vArr, 2) Then ReDim Preserve vArr(1 To 2 * n_tgt, 0 To mm)
                 vArr(i * 2 - 1, 0) = "p=" & Format(tgt_value, "0.0000")
-                For j = 1 To m
+                For j = 1 To mm
                     vArr(i * 2 - 1, j) = uArr(1, j)
                     vArr(i * 2, j) = uArr(2, j)
                 Next j
@@ -658,6 +660,74 @@ Dim LookUp2Side() As Long
 End Sub
 
 
+'==========================================================================================
+'Contour plot of datasets given by xy(1:N,1:2) and z(1:N), where xy() is the cartesian coordinates
+'of N datapoints and z() is the "height" at each of these points.
+'==========================================================================================
+Function Plot_Contour_xyz(xy As Variant, z As Variant, _
+            Optional min_tgt As Variant = Null, Optional max_tgt As Variant = Null, _
+            Optional n_tgt As Long = 9, _
+            Optional isClean As Boolean = False, _
+            Optional n_x As Long = 9, Optional n_y As Long = 9, _
+            Optional min_x As Variant = Null, Optional max_x As Variant = Null, _
+            Optional min_y As Variant = Null, Optional max_y As Variant = Null, _
+            Optional isSeparate As Boolean = False) As Variant
+Dim i As Long, j As Long, k As Long, m As Long, n As Long
+Dim vArr As Variant
+Dim xy_d As cDelaunay
+Dim tmp_x As Double, tmp_y As Double
+Dim x_min As Double, x_max As Double, y_min As Double, y_max As Double
+    n = UBound(xy, 1)
+    
+    'Set up grid that covers xy()
+    For j = 1 To 2
+        tmp_x = Exp(70): tmp_y = -tmp_x
+        For i = 1 To n
+            If xy(i, j) < tmp_x Then tmp_x = xy(i, j)
+            If xy(i, j) > tmp_y Then tmp_y = xy(i, j)
+        Next i
+        If j = 1 Then
+            If IsNull(min_x) Then
+                x_min = tmp_x
+            Else
+                x_min = min_x
+            End If
+            If IsNull(max_x) Then
+                x_max = tmp_y
+            Else
+                x_max = max_x
+            End If
+        ElseIf j = 2 Then
+            If IsNull(min_y) Then
+                y_min = tmp_x
+            Else
+                y_min = min_y
+            End If
+            If IsNull(max_y) Then
+                y_max = tmp_y
+            Else
+                y_max = max_y
+            End If
+        End If
+    Next j
+    
+    'Intrapolate value at each grid point
+    Set xy_d = New cDelaunay
+    With xy_d
+        Call .Init(xy, z)
+        Call .Intrapolate_Grid(vArr, n_x, n_y, x_min, x_max, y_min, y_max)
+        Call .Reset
+    End With
+    Set xy_d = Nothing
+    
+    'Contour plot
+    Plot_Contour_xyz = Plot_Contour_2DMatrix(vArr, min_tgt, max_tgt, n_tgt, isClean, True, _
+                            x_min, x_max, y_min, y_max, isSeparate)
+                            
+    Erase vArr
+End Function
+
+
 Private Sub Test_mPlotContour()
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, iterate As Long
 Dim vArr As Variant
@@ -700,6 +770,39 @@ Dim tmp_x As Double
         vArr = Plot_Contour_2DMatrix(A, 0.2, 1, 5, True, False, -2, 2.2, -2, 2, True)
         .Range("AK1:AT1048576").Clear
         If Not VBA.IsError(vArr) Then .Range("AK1").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
+        
+    End With
+
+    Application.Calculation = xlCalculationAutomatic
+    Application.ScreenUpdating = True
+End Sub
+
+
+Private Sub Test_mPlotContour_xyz()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, iterate As Long
+Dim vArr As Variant, A As Variant
+Dim tmp_x As Double
+Dim xy As Variant, z As Variant
+    Application.Calculation = xlCalculationManual
+    Application.ScreenUpdating = False
+
+    With ActiveWorkbook.Sheets("Sheet5_xyz")
+        n = .Range("B1048576").End(xlUp).Row - 2
+        xy = .Range("B3").Resize(n, 2).Value
+        ReDim z(1 To n)
+        For i = 1 To n
+            z(i) = .Range("D" & 2 + i).Value
+        Next i
+
+        'Plot as one series
+        vArr = Plot_Contour_xyz(xy, z, , , , True, , , 0.3, 0.9, 0.3, 0.9)
+        .Range("I3:J1048576").Clear
+        If Not VBA.IsError(vArr) Then .Range("I3").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
+        
+        'Plot each level of contour line separately
+        vArr = Plot_Contour_xyz(xy, z, , , , True, , , 0.3, 0.9, 0.3, 0.9, True)
+        .Range("L2:AT1048576").Clear
+        If Not VBA.IsError(vArr) Then .Range("L2").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
         
     End With
 
