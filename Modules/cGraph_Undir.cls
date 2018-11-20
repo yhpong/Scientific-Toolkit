@@ -970,7 +970,7 @@ Sub Calc_Layout_Single(Optional strMethod As String = "FORCE_MULTI", _
             Optional isDegNorm As Boolean = True, Optional WgtType As String = "NONE", _
             Optional c_spring As Double = 1, Optional c_repulsive As Double = 1, Optional c_power As Double = 2)
 Dim i As Long, j As Long
-Dim g1 As cGraphAlgo
+'Dim g1 As cGraphAlgo
 Dim tmp_x As Double
     If pSize <= 2 Then
         ReDim pnode_pos(1 To pSize, 1 To n_dimension)
