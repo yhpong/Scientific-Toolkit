@@ -767,9 +767,11 @@ Dim tmp_x As Double, tmp_y As Double
             x_pos(i, j) = (x(i, j) - x_avg(j)) / x_sd(j)
         Next i
     Next j
-    Call Init(x_pos)
-    x_lines = Me.Plot(uArr)
-    Call Me.Reset
+    With Me
+        Call .Init(x_pos)
+        Call .Plot(x_lines, uArr)
+        Call .Reset
+    End With
     
     n = UBound(x_lines, 1)
     ReDim Preserve x_lines(1 To n, 1 To 3)
