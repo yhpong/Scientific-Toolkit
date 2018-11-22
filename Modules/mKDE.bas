@@ -5,10 +5,11 @@ Option Explicit
 '2-Dimensional kernel density estimate using gaussian kernel
 '=================================================================
 'Input:
-'x(1:N,1:2),     N observations of 2-dimensional data
+'x(1:N,1:D),     N observations of 2-dimensional data
 'n_x, n_y,       number of grids to in x-y corrdinates
 's_x, s_y, rho,  size and correlation of Gaussian kernel
 'x_fix, y_fix,   fix positions of x or y where the pdf is calculated
+'x_tgtrng(1:2,1:D), min/max range of each dimension
 'Output:
 'x_pdf(1:n_y,1:n_x), if x_fix and y_fix are both null, 2D-matrix of probability densities
 'x_pdf(1:n_y,1:2),   if only x_fix is given, probability densities along fixed x
@@ -18,7 +19,7 @@ Option Explicit
 Sub KDE_2D(x As Variant, n_x As Long, n_y As Long, x_pdf As Variant, _
                 Optional s_x As Variant = Null, Optional s_y As Variant = Null, Optional rho As Variant = Null, _
                 Optional x_fix As Variant = Null, Optional y_fix As Variant = Null, _
-                Optional x_minmax As Variant = Null)
+                Optional x_minmax As Variant = Null, Optional x_tgtrng As Variant = Null)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_dimension As Long
 Dim ii As Long
 Dim x_mean() As Double, x_sd() As Double, x_min() As Double, x_max() As Double
@@ -58,6 +59,10 @@ Dim is_x_fix As Long
         Next i
         x_sd(k) = Sqr((tmp_y - tmp_x * (tmp_x / n)) / (n - 1))
         x_mean(k) = tmp_x / n
+        If Not IsNull(x_tgtrng) Then
+            x_min(k) = x_tgtrng(1, k)
+            x_max(k) = x_tgtrng(2, k)
+        End If
         If Not IsNull(x_minmax) Then
             x_minmax(1, k) = x_min(k)
             x_minmax(2, k) = x_max(k)
