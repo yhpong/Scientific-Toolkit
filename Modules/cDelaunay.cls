@@ -67,6 +67,103 @@ Dim EdgeVisited As Collection
     Set EdgeVisited = Nothing
 End Function
 
+'=========================================================================
+'Plot the grid-lines of Voronoi diagram as scatter chart in Excel
+'=========================================================================
+Sub Plot_Voronoi(vArr As Variant)
+Dim i As Long, j As Long, k As Long, m As Long, n_edge As Long
+Dim u As Long, v As Long, w As Long, w_L As Long, w_R As Long
+Dim uArr As Variant
+Dim A As cQuadEdge, B As cQuadEdge, C As cQuadEdge, A_prev As cQuadEdge
+Dim EdgeVisited As Collection
+Dim tmp_x As Double, tmp_y As Double, tmp_xx As Double, tmp_yy As Double
+Dim isL_Valid As Boolean, isR_Valid As Boolean, isShow As Boolean
+    Call Traverse_All_Edges_Voronoi(EdgeVisited, True)
+    ReDim uArr(1 To 2, 0 To 0)
+    Do While EdgeVisited.Count > 0
+        
+        If EdgeVisited.Count Mod 1000 = 0 Then
+            DoEvents
+        End If
+        Set A = EdgeVisited(1)
+        EdgeVisited.Remove (1)
+  
+        u = A.Org: v = A.Dest
+        
+        Set B = A.Lnext
+        w_L = B.Dest
+        If B.Lnext.Dest = u Then
+            isL_Valid = True
+        Else
+            isL_Valid = False
+        End If
+        
+        Set B = A.Rprev
+        w_R = B.Dest
+        If B.Rprev.Dest = u Then
+            isR_Valid = True
+        Else
+            isR_Valid = False
+        End If
+        
+        isShow = True
+        If isL_Valid And isR_Valid Then
+            Call Calc_Center(tmp_x, tmp_y, u, v, w_L)
+            Call Calc_Center(tmp_xx, tmp_yy, u, v, w_R)
+        ElseIf isL_Valid And isR_Valid = False Then
+            Call Calc_Center(tmp_x, tmp_y, u, v, w_L)
+            If isInsideHull(tmp_x, tmp_y) Then
+                tmp_xx = (px(u, 1) + px(v, 1)) / 2
+                tmp_yy = (px(u, 2) + px(v, 2)) / 2
+            Else
+                isShow = False
+            End If
+        ElseIf isL_Valid = False And isR_Valid Then
+            Call Calc_Center(tmp_xx, tmp_yy, u, v, w_R)
+            If isInsideHull(tmp_xx, tmp_yy) Then
+                tmp_x = (px(u, 1) + px(v, 1)) / 2
+                tmp_y = (px(u, 2) + px(v, 2)) / 2
+            Else
+                isShow = False
+            End If
+        End If
+        
+        If isShow Then
+            k = UBound(uArr, 2)
+            If k = 0 Then
+                ReDim uArr(1 To 2, 1 To 2)
+                uArr(1, 1) = tmp_x
+                uArr(2, 1) = tmp_y
+                uArr(1, 2) = tmp_xx
+                uArr(2, 2) = tmp_yy
+            Else
+                If (A Is A_prev.Oprev And A.Lnext Is A_prev.Dnext) _
+                        Or (A Is A_prev.Dnext And A.Lprev Is A_prev.Oprev) Then
+                    ReDim Preserve uArr(1 To 2, 1 To k + 1)
+                    uArr(1, k + 1) = tmp_xx
+                    uArr(2, k + 1) = tmp_yy
+                Else
+                    ReDim Preserve uArr(1 To 2, 1 To k + 3)
+                    uArr(1, k + 2) = tmp_x
+                    uArr(2, k + 2) = tmp_y
+                    uArr(1, k + 3) = tmp_xx
+                    uArr(2, k + 3) = tmp_yy
+                End If
+            End If
+            Set A_prev = A
+        End If
+    Loop
+    
+    m = UBound(uArr, 2)
+    ReDim vArr(1 To m, 1 To 2)
+    For j = 1 To 2
+        For i = 1 To m
+            vArr(i, j) = uArr(j, i)
+        Next i
+    Next j
+End Sub
+
+
 'Convert an ordered list of edges into chartable x-y positions
 Private Sub EdgeList_2_ExcelChart(vArr As Variant, EdgeVisited As Collection, node_list As Variant)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
@@ -121,13 +218,13 @@ Dim A As cQuadEdge, uArr As Variant
     Application.StatusBar = False
 End Sub
 
-'Traverse all edges in the Delaunay tessellation starting from the leftmost edge
+'Traverse all edges in the Delaunay tessellation along the hull, starting from the leftmost edge and grow inwards
 Private Sub Traverse_All_Edges(EdgeVisited As Collection, Optional reset_visit As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long
 Dim u As Long, v As Long, w As Long
 Dim A As cQuadEdge, B As cQuadEdge
 Dim EdgeStack As Collection
-    
+Dim uArr As Variant, node_list As Variant
     Set EdgeVisited = New Collection    'edges in visited order
     Set EdgeStack = New Collection      'Stack of edges to be visited next
     Set A = pEdge_L                     'First edge pointer
@@ -170,7 +267,7 @@ Dim EdgeStack As Collection
     Application.StatusBar = False
 End Sub
 
-'Traverse all nodes in the Delaunay tessellation starting from the leftmost node using depth-first-search
+'Traverse all nodes in the Delaunay tessellation starting from the leftmost node spiral inwards
 Private Sub Traverse_All_Nodes(EdgeVisited As Collection, Optional reset_visit As Boolean = True)
 Dim i As Long, j As Long, k As Long, m As Long
 Dim u As Long, v As Long, w As Long
@@ -223,6 +320,59 @@ Dim isVisited() As Long
 End Sub
 
 
+'Traverse all edges in the Delaunay tessellation in order natural for Voronoi
+Private Sub Traverse_All_Edges_Voronoi(EdgeVisited As Collection, Optional reset_visit As Boolean = True)
+Dim i As Long, j As Long, k As Long, m As Long
+Dim u As Long, v As Long, w As Long
+Dim A As cQuadEdge, B As cQuadEdge
+Dim EdgeStack As Collection
+    Call Traverse_All_Edges(EdgeVisited, True)
+    Set A = EdgeVisited(EdgeVisited.Count)  'Start from innermost edge
+    'Set A = pEdge_L.Oprev               'First edge pointer
+    Set EdgeVisited = New Collection    'edges in visited order
+    Set EdgeStack = New Collection      'Stack of edges to be visited next
+    EdgeStack.Add A
+    k = 0
+    Do While EdgeStack.Count > 0
+    
+        k = k + 1
+        If k Mod 2000 = 0 Then
+            DoEvents
+            Application.StatusBar = "Traversing Edges (Voronoi): " & EdgeStack.Count
+        End If
+        
+        Set A = EdgeStack(1)
+        EdgeStack.Remove (1)
+
+        If Not A.isVisited Then
+            A.isVisited = True
+            EdgeVisited.Add A
+
+            Set B = A
+            Do
+                Set B = B.Oprev
+                EdgeStack.Add B
+                If B Is A Then Exit Do
+            Loop
+
+            Set B = A.Lnext
+            Do
+                If Not B.isVisited Then EdgeStack.Add B
+                Set B = B.Oprev
+                If B Is A.Sym Then Exit Do
+            Loop
+
+        End If
+    Loop
+    Set EdgeStack = Nothing
+    If reset_visit = True Then
+        For Each A In EdgeVisited
+            A.isVisited = False
+        Next A
+    End If
+    Application.StatusBar = False
+End Sub
+
 '========================================================================
 'Create a Delaunay tessellation of a set of 2-D points
 'Duplicates need to be resolved beforehand
@@ -234,6 +384,7 @@ Sub Init(x As Variant, Optional x_value As Variant = Null)
 Dim i As Long, j As Long, k As Long, m As Long
 Dim A As cQuadEdge, B As cQuadEdge, C As cQuadEdge
 Dim tmp_vec() As Double, iArr() As Long, xArr() As Double, tmp_x As Double
+Dim x_ptr() As Long, isDuplicate() As Long, n_duplicate As Long
     If UBound(x, 2) <> 2 Then
         Debug.Print "cDelaunay: only supports 2-dimensional at the moment."
         Exit Sub
@@ -254,32 +405,57 @@ Dim tmp_vec() As Double, iArr() As Long, xArr() As Double, tmp_x As Double
     Call Sort_Quick_A(tmp_vec, 1, pn, px_sort_idx, 1)
 
     'If ties exist in first dimension then sort by the second dimension
-    i = 2
-    Do While i <= pn
+    i = 1
+    n_duplicate = 0: ReDim isDuplicate(1 To pn)
+    Do While i < pn
         tmp_x = tmp_vec(i)
-        If tmp_vec(i) = tmp_vec(i - 1) Then
-            m = i
-            For j = i + 1 To pn
-                If Abs(tmp_vec(j) - tmp_vec(i)) > pz_tol Then
+        If Almost_Equal(tmp_vec(i), tmp_vec(i + 1)) Then
+            m = i + 1
+            For j = i + 2 To pn
+                If Not Almost_Equal(tmp_vec(j), tmp_vec(i)) Then
                     m = j - 1
                     Exit For
+                Else
+                    m = j
                 End If
             Next j
-            ReDim iArr(1 To m - i + 2)
-            ReDim xArr(1 To m - i + 2)
-            For k = 1 To m - i + 2
-                iArr(k) = px_sort_idx(i + k - 2)
-                xArr(k) = px(px_sort_idx(i + k - 2), 2)
+            ReDim iArr(1 To m - i + 1)
+            ReDim xArr(1 To m - i + 1)
+            For k = 1 To m - i + 1
+                iArr(k) = px_sort_idx(i + k - 1)
+                xArr(k) = px(px_sort_idx(i + k - 1), 2)
             Next k
-            Call Sort_Quick_A(xArr, 1, m - i + 2, iArr, 0)
-            For k = 1 To m - i + 2
-                px_sort_idx(i + k - 2) = iArr(k)
+            Call Sort_Quick_A(xArr, 1, m - i + 1, iArr, 0)
+            For k = 1 To m - i + 1
+                px_sort_idx(i + k - 1) = iArr(k)
+                If k > 1 Then
+                    If Almost_Equal(xArr(k), xArr(k - 1)) Then
+                        n_duplicate = n_duplicate + 1
+                        isDuplicate(iArr(k)) = 1
+                    End If
+                End If
             Next k
-            i = m + 2
+            i = m + 1
         Else
             i = i + 1
         End If
     Loop
+
+    'Remove pointers of duplicate data
+    If n_duplicate > 0 Then
+        Debug.Print "cDelaunay: Caution: " & n_duplicate & " duplicates found."
+    End If
+    iArr = px_sort_idx
+    pn = pn - n_duplicate: k = 0
+    ReDim px_sort_idx(1 To pn)
+    For i = 1 To UBound(iArr)
+        j = iArr(i)
+        If isDuplicate(j) = 0 Then
+            k = k + 1
+            px_sort_idx(k) = j
+        End If
+    Next i
+    Erase iArr, isDuplicate
     
     If Not IsNull(x_value) Then
         ReDim px_value(1 To pn)
@@ -288,6 +464,7 @@ Dim tmp_vec() As Double, iArr() As Long, xArr() As Double, tmp_x As Double
         Next i
     End If
     
+    'Perform triangulation
     Call Delaunay_Step(px_sort_idx, pEdge_L, pEdge_R)
     Application.StatusBar = False
 End Sub
@@ -296,11 +473,9 @@ End Sub
 Private Sub Delaunay_Step(x_ptr() As Long, Edge_L As cQuadEdge, Edge_R As cQuadEdge)
 Dim i As Long, j As Long, k As Long, n As Long, n_L As Long, n_R As Long
 Dim A As cQuadEdge, B As cQuadEdge, C As cQuadEdge
-Dim ldo As cQuadEdge, ldi As cQuadEdge, lcand As cQuadEdge
-Dim rdo As cQuadEdge, rdi As cQuadEdge, rcand As cQuadEdge
-Dim basel As cQuadEdge, t As cQuadEdge
+Dim ldo As cQuadEdge, ldi As cQuadEdge
+Dim rdo As cQuadEdge, rdi As cQuadEdge
 Dim x_ptr_L() As Long, x_ptr_R() As Long
-Dim isValid_L As Boolean, isValid_R As Boolean
 Dim vArr As Variant, tmp_x As Double, tmp_y As Double
 
     n = UBound(x_ptr)
@@ -356,64 +531,72 @@ Dim vArr As Variant, tmp_x As Double, tmp_y As Double
             Application.StatusBar = "Delaunay Triangulation: " & n & ": " & n_L & "-" & n_R
         End If
         
-        Do
-            If isLeftOf(rdi.Org, ldi) Then
-                Set ldi = ldi.Lnext
-            ElseIf isRightOf(ldi.Org, rdi) Then
-                Set rdi = rdi.Rprev
-            Else
-                Exit Do
-            End If
-        Loop
-
-        Set basel = ConnectEdge(rdi.Sym, ldi)
-        If ldi.Org = ldo.Org Then Set ldo = basel.Sym
-        If rdi.Org = rdo.Org Then Set rdo = basel
-        
-        Do
-
-            Set lcand = basel.Sym.Onext
-            If isValid(lcand, basel) Then
-                Do While inCircle(basel.Dest, basel.Org, lcand.Dest, lcand.Onext.Dest)
-                    Set t = lcand.Onext
-                    Call DeleteEdge(lcand)
-                    Set lcand = t
-                Loop
-            End If
-            
-            Set rcand = basel.Oprev
-            If isValid(rcand, basel) Then
-                Do While inCircle(basel.Dest, basel.Org, rcand.Dest, rcand.Oprev.Dest)
-                    Set t = rcand.Oprev
-                    Call DeleteEdge(rcand)
-                    Set rcand = t
-                Loop
-            End If
-            
-            isValid_L = isValid(lcand, basel)
-            isValid_R = isValid(rcand, basel)
-            
-            If Not isValid_L And Not isValid_R Then Exit Do
-            
-            If Not isValid_L Or _
-                    (isValid_R And inCircle(lcand.Dest, lcand.Org, rcand.Org, rcand.Dest)) Then
-                Set basel = ConnectEdge(rcand, basel.Sym)
-            Else
-                Set basel = ConnectEdge(basel.Sym, lcand.Sym)
-            End If
-
-        Loop
-
-        Set Edge_L = ldo
-        Set Edge_R = rdo
+        Call Delaunay_Merge(ldo, ldi, rdi, rdo, Edge_L, Edge_R)
         
     End If
+End Sub
 
+Private Sub Delaunay_Merge(ldo As cQuadEdge, ldi As cQuadEdge, rdi As cQuadEdge, rdo As cQuadEdge, _
+                Edge_L As cQuadEdge, Edge_R As cQuadEdge)
+Dim lcand As cQuadEdge, rcand As cQuadEdge, basel As cQuadEdge, t As cQuadEdge
+Dim isValid_L As Boolean, isValid_R As Boolean
+        
+    Do
+        If isLeftOf(rdi.Org, ldi) Then
+            Set ldi = ldi.Lnext
+        ElseIf isRightOf(ldi.Org, rdi) Then
+            Set rdi = rdi.Rprev
+        Else
+            Exit Do
+        End If
+    Loop
+
+    Set basel = ConnectEdge(rdi.Sym, ldi)
+    If ldi.Org = ldo.Org Then Set ldo = basel.Sym
+    If rdi.Org = rdo.Org Then Set rdo = basel
+    
+    Do
+
+        Set lcand = basel.Sym.Onext
+        If isValid(lcand, basel) Then
+            Do While inCircle(basel.Dest, basel.Org, lcand.Dest, lcand.Onext.Dest)
+                Set t = lcand.Onext
+                Call DeleteEdge(lcand)
+                Set lcand = t
+            Loop
+        End If
+        
+        Set rcand = basel.Oprev
+        If isValid(rcand, basel) Then
+            Do While inCircle(basel.Dest, basel.Org, rcand.Dest, rcand.Oprev.Dest)
+                Set t = rcand.Oprev
+                Call DeleteEdge(rcand)
+                Set rcand = t
+            Loop
+        End If
+        
+        isValid_L = isValid(lcand, basel)
+        isValid_R = isValid(rcand, basel)
+        
+        If Not isValid_L And Not isValid_R Then Exit Do
+        
+        If Not isValid_L Or _
+                (isValid_R And inCircle(lcand.Dest, lcand.Org, rcand.Org, rcand.Dest)) Then
+            Set basel = ConnectEdge(rcand, basel.Sym)
+        Else
+            Set basel = ConnectEdge(basel.Sym, lcand.Sym)
+        End If
+
+    Loop
+
+    Set Edge_L = ldo
+    Set Edge_R = rdo
 End Sub
 
 
+
 '==================================================================================
-'Basic Quad-Edge operations
+'Basic Quad-Edge operations and tests
 'These follow the conventions in Guibas and Stolfi, see illustrations therein
 '==================================================================================
 Private Sub Splice(A As cQuadEdge, B As cQuadEdge)
@@ -542,27 +725,47 @@ Dim iterate As Long
 Dim A As cQuadEdge
 Dim tmp_x As Double, tmp_y As Double
     'Check that point lies inside the convex-hull, returns nothing otherwise
-    Set A = pEdge_L
-    Do
-        If isRightOf_xy(x, y, A) Then
-            Set tgt_edge = Nothing
-            u = A.Org: v = A.Dest: w = -1
-            Exit Sub
-        End If
-        Set A = A.Rprev
-        If A Is pEdge_L Then Exit Do
-    Loop
-    
+    If Not isInsideHull(x, y) Then
+        Set tgt_edge = Nothing
+        u = -1: v = -1: w = -1
+        Exit Sub
+    End If
+
     If VBA.IsNull(init_edge) Then
         Set A = pEdge_L
     Else
         Set A = init_edge
     End If
-    
+
+    iterate = 0
     Do
-        If (x = px(A.Org, 1) And y = px(A.Org, 2)) Or (x = px(A.Dest, 1) And y = px(A.Dest, 2)) Then
+        iterate = iterate + 1
+        If iterate Mod 100 = 0 Then
+            DoEvents
+            Application.StatusBar = "cDelaunay: Locate_xy: Stuck:" & iterate & ", (" & x & ", " & y & ")"
+        End If
+        
+        If (Almost_Equal(x, px(A.Org, 1)) And Almost_Equal(y, px(A.Org, 2))) _
+                Or (Almost_Equal(x, px(A.Dest, 1)) And Almost_Equal(y, px(A.Dest, 2))) Then
             Set tgt_edge = A
-            Exit Do
+            u = A.Org: v = A.Dest: w = -1       '(x,y) lies on A, use only 2 points to intrapolate
+            Exit Sub
+        ElseIf isCollinear_xy(x, y, A, tmp_x) Then
+            If tmp_x >= 0 And tmp_x <= 1 Then   '(x,y) lies on A, use only 2 points to intrapolate
+                Set tgt_edge = A
+                u = A.Org: v = A.Dest: w = -1
+                Exit Sub
+            ElseIf tmp_x > 1 Then
+                If isLeftOf_xy(x, y, A.Lnext) Then
+                    Set A = A.Lnext
+                ElseIf isLeftOf_xy(x, y, A.Rprev) Then
+                    Set A = A.Rprev
+                Else
+                    Set A = A.Lnext
+                End If
+            ElseIf tmp_x < 0 Then
+                Set A = A.Sym.Lnext
+            End If
         ElseIf isRightOf_xy(x, y, A) Then
             Set A = A.Sym
         ElseIf Not isRightOf_xy(x, y, A.Onext) Then
@@ -577,6 +780,7 @@ Dim tmp_x As Double, tmp_y As Double
     With tgt_edge
         u = .Org: v = .Dest: w = .Lnext.Dest
     End With
+    
     Application.StatusBar = False
 End Sub
 
@@ -606,44 +810,70 @@ End Sub
         End If
     End Function
 
-Private Sub Calc_Center(x As Double, y As Double, u As Long, v As Long, w As Long)
-Dim tmp_det As Double, d_uv As Double, d_uw As Double
-    tmp_det = px(v, 1) * px(w, 2) - px(v, 2) * px(w, 1)
-    tmp_det = tmp_det - (px(u, 1) * px(w, 2) - px(u, 2) * px(w, 1))
-    tmp_det = tmp_det + (px(u, 1) * px(v, 2) - px(u, 2) * px(v, 1))
-    
-    d_uv = px(u, 1) ^ 2 - px(v, 1) ^ 2 + px(u, 2) ^ 2 - px(v, 2) ^ 2
-    d_uw = px(u, 1) ^ 2 - px(w, 1) ^ 2 + px(u, 2) ^ 2 - px(w, 2) ^ 2
-    
-    x = (d_uv * (px(u, 2) - px(w, 2)) - d_uw * (px(u, 2) - px(v, 2))) / (2 * tmp_det)
-    y = -(d_uv * (px(u, 1) - px(w, 1)) - d_uw * (px(u, 1) - px(v, 1))) / (2 * tmp_det)
-End Sub
-
-Private Sub Calc_Dual_Coordinates()
-Dim i As Long, j As Long, k As Long, m As Long, n_edge As Long
-Dim u As Long, v As Long, w As Long, u_prev As Long, v_prev As Long, u_org As Long
-Dim vArr As Variant, n_visited As Long
-Dim A As cQuadEdge, B As cQuadEdge, C As cQuadEdge, B_prv As cQuadEdge
-Dim EdgeStack As Collection, EdgeVisited As Collection
-Dim node_visited() As Long
-Dim tmp_x As Double, tmp_y As Double
-    For Each A In pEdgeList
-        Set B = A.Lnext
-        u = A.Org
-        v = A.Dest
-        w = B.Dest
-        If isCCW(u, v, w) Then
-            If B.Lnext.Dest = u Then
-                Call Calc_Center(tmp_x, tmp_y, u, v, w)
+    Private Function isCollinear_xy(x As Double, y As Double, A As cQuadEdge, x_loc As Double) As Boolean
+    Dim u As Long, v As Long
+    Dim tmp_x As Double
+        isCollinear_xy = False
+        u = A.Org: v = A.Dest
+        If x = px(u, 1) And x = px(v, 1) Then
+            isCollinear_xy = True
+            x_loc = (y - px(u, 2)) / (px(v, 2) - px(u, 2))
+        ElseIf y = px(u, 2) And y = px(v, 2) Then
+            isCollinear_xy = True
+            x_loc = (x - px(u, 1)) / (px(v, 1) - px(u, 1))
+        Else
+            tmp_x = px(u, 1) * px(v, 2) - px(u, 2) * px(v, 1) _
+                    - (x * px(v, 2) - y * px(v, 1)) _
+                    + (x * px(u, 2) - y * px(u, 1))
+            If tmp_x = 0 Then
+                isCollinear_xy = True
+                x_loc = (x - px(u, 1)) * (px(v, 1) - px(u, 1)) + (y - px(u, 2)) * (px(v, 2) - px(u, 2))
+                x_loc = x_loc / ((px(v, 1) - px(u, 1)) ^ 2 + (px(v, 2) - px(u, 2)) ^ 2)
             End If
         End If
+    End Function
     
-    Next A
-End Sub
+    Private Function isInsideHull(x As Double, y As Double) As Boolean
+    Dim A As cQuadEdge
+        isInsideHull = True
+        Set A = pEdge_L
+        Do
+            If isRightOf_xy(x, y, A) Then
+                isInsideHull = False
+                Exit Function
+            End If
+            Set A = A.Rprev
+            If A Is pEdge_L Then Exit Do
+        Loop
+    End Function
+    
+    Private Sub Calc_Center(x As Double, y As Double, u As Long, v As Long, w As Long)
+    Dim tmp_det As Double, d_uv As Double, d_uw As Double
+        tmp_det = px(v, 1) * px(w, 2) - px(v, 2) * px(w, 1)
+        tmp_det = tmp_det - (px(u, 1) * px(w, 2) - px(u, 2) * px(w, 1))
+        tmp_det = tmp_det + (px(u, 1) * px(v, 2) - px(u, 2) * px(v, 1))
+        
+        d_uv = px(u, 1) ^ 2 - px(v, 1) ^ 2 + px(u, 2) ^ 2 - px(v, 2) ^ 2
+        d_uw = px(u, 1) ^ 2 - px(w, 1) ^ 2 + px(u, 2) ^ 2 - px(w, 2) ^ 2
+        
+        x = (d_uv * (px(u, 2) - px(w, 2)) - d_uw * (px(u, 2) - px(v, 2))) / (2 * tmp_det)
+        y = -(d_uv * (px(u, 1) - px(w, 1)) - d_uw * (px(u, 1) - px(v, 1))) / (2 * tmp_det)
+    End Sub
+
+
+
 
 '=========================================
 'Basic math operations
 '=========================================
+Private Function Almost_Equal(x As Variant, y As Variant) As Boolean
+    If Abs(x - y) <= pz_tol Then
+        Almost_Equal = True
+    Else
+        Almost_Equal = False
+    End If
+End Function
+
 Private Sub Sort_Quick_A(vArray As Variant, inLow As Long, inHi As Long, sort_index() As Long, Optional first_run As Long = 1)
 Dim pivot   As Double
 Dim tmpSwap As Variant
@@ -721,10 +951,10 @@ End Sub
         End If
         Set C = A_copy
         Do
+            n_neighbor = n_neighbor + 1
             If C.Lnext.Lnext.Dest = u Then
                 v = C.Dest
                 w = C.Lnext.Dest
-                n_neighbor = n_neighbor + 1
                 tmp_x = tmp_x + Calc_Area_Triangle(u, v, w)
             End If
             Set C = C.Onext
@@ -739,8 +969,11 @@ End Sub
     End Function
 
 
-'Input: x(1:N,1:3), datapoints at x-y positions with value z
-'Output:    x_lines(1:M,1:3), lines to chart dataset on a Delaunay triangulation
+'=======================================================================================================
+'Generate 3-dimesional plot x(1:N,1:3), where the first two columns are positions and the third is height
+'=======================================================================================================
+'Input:  x(1:N,1:3), datapoints at x-y positions with value z
+'Output: x_lines(1:M,1:3), lines to creat 3D chart on a Delaunay triangulation
 Sub Plot_xyz(x As Variant, x_lines As Variant)
 Dim i As Long, j As Long, k As Long, m As Long, n As Long
 Dim vArr As Variant, uArr As Variant
@@ -783,8 +1016,11 @@ Dim tmp_x As Double, tmp_y As Double
 
 End Sub
 
-'Input:
-'n_x,n_y
+'=========================================================================
+'Using the currently saved positions and values adn their triangulations,
+'use linear intrapolation to estimate values on a regular grid
+'=========================================================================
+'Input: n_x/y , min/max_x/y,   resolution and range of grid points to intrpolate on
 'Output: x_value(1:n_y,1:n_x) , intrapolated values on grid
 Sub Intrapolate_Grid(x_value As Variant, n_x As Long, n_y As Long, _
             min_x As Variant, max_x As Variant, min_y As Variant, max_y As Variant)
@@ -807,6 +1043,7 @@ Dim A As cQuadEdge, B As cQuadEdge
                 x_value(i, j) = tmp_z
                 Set B = A
             Else
+                'points outside the convex hull are assumed to be zero
                 Set B = pEdge_L
             End If
         Next j
@@ -816,14 +1053,24 @@ Dim A As cQuadEdge, B As cQuadEdge
 End Sub
 
 Private Function Intrapolate_xy(x As Double, y As Double, u As Long, v As Long, w As Long) As Double
-Dim grad_x As Double, grad_y As Double
-    Call Intrapolate_grad(grad_x, grad_y, u, v, w)
-    Intrapolate_xy = px_value(u) + grad_x * (x - px(u, 1)) + grad_y * (y - px(u, 2))
+Dim tmp_x As Double, grad_x As Double, grad_y As Double
+    If w < 0 Then
+        tmp_x = (x - px(u, 1)) ^ 2 + (y - px(u, 2)) ^ 2
+        tmp_x = Sqr(tmp_x / ((px(v, 1) - px(u, 1)) ^ 2 + (px(v, 2) - px(u, 2)) ^ 2))
+        Intrapolate_xy = px_value(u) + (px_value(v) - px_value(u)) * tmp_x
+    Else
+        Call Intrapolate_grad(grad_x, grad_y, u, v, w)
+        Intrapolate_xy = px_value(u) + grad_x * (x - px(u, 1)) + grad_y * (y - px(u, 2))
+    End If
 End Function
 
 Private Sub Intrapolate_grad(grad_x As Double, grad_y As Double, u As Long, v As Long, w As Long)
 grad_x = (px_value(v) - px_value(u)) * (px(w, 2) - px(u, 2)) - (px_value(w) - px_value(u)) * (px(v, 2) - px(u, 2))
 grad_y = (px_value(v) - px_value(u)) * (px(w, 1) - px(u, 1)) - (px_value(w) - px_value(u)) * (px(v, 1) - px(u, 1))
-grad_x = grad_x / ((px(v, 1) - px(u, 1)) * (px(w, 2) - px(u, 2)) - (px(w, 1) - px(u, 1)) * (px(v, 2) - px(u, 2)))
-grad_y = grad_y / ((px(v, 2) - px(u, 2)) * (px(w, 1) - px(u, 1)) - (px(w, 2) - px(u, 2)) * (px(v, 1) - px(u, 1)))
+If grad_x <> 0 Then
+    grad_x = grad_x / ((px(v, 1) - px(u, 1)) * (px(w, 2) - px(u, 2)) - (px(w, 1) - px(u, 1)) * (px(v, 2) - px(u, 2)))
+End If
+If grad_y <> 0 Then
+    grad_y = grad_y / ((px(v, 2) - px(u, 2)) * (px(w, 1) - px(u, 1)) - (px(w, 2) - px(u, 2)) * (px(v, 1) - px(u, 1)))
+End If
 End Sub

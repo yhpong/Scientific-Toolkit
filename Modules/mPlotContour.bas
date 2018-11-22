@@ -780,12 +780,13 @@ End Sub
 
 Private Sub Test_mPlotContour_xyz()
 Dim i As Long, j As Long, k As Long, m As Long, n As Long, iterate As Long
-Dim vArr As Variant, A As Variant
+Dim vArr As Variant, A As Variant, uArr As Variant
 Dim tmp_x As Double
 Dim xy As Variant, z As Variant
+Dim x_d As cDelaunay
+
     Application.Calculation = xlCalculationManual
     Application.ScreenUpdating = False
-
     With ActiveWorkbook.Sheets("Sheet5_xyz")
         n = .Range("B1048576").End(xlUp).Row - 2
         xy = .Range("B3").Resize(n, 2).Value
@@ -793,16 +794,30 @@ Dim xy As Variant, z As Variant
         For i = 1 To n
             z(i) = .Range("D" & 2 + i).Value
         Next i
-
-        'Plot as one series
-        vArr = Plot_Contour_xyz(xy, z, , , , True, , , 0.3, 0.9, 0.3, 0.9)
-        .Range("I3:J1048576").Clear
-        If Not VBA.IsError(vArr) Then .Range("I3").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
         
+        'Plot Delaunay and Voronoi diagrams
+        Set x_d = New cDelaunay
+        With x_d
+            Call .Init(xy, z)
+            Call .Plot(vArr, A)
+            Call .Plot_Voronoi(uArr)
+            Call .Reset
+        End With
+        Set x_d = Nothing
+        .Range("F3:J1048576").Clear
+        .Range("F3").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
+        .Range("I3").Resize(UBound(uArr, 1), UBound(uArr, 2)).Value = uArr
+        .Range("H3").Resize(UBound(A, 1), 1).Value = Application.WorksheetFunction.Transpose(A)
+            
+        'Plot as one series
+        vArr = Plot_Contour_xyz(xy, z, , , , True)
+        .Range("L3:M1048576").Clear
+        If Not VBA.IsError(vArr) Then .Range("L3").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
+
         'Plot each level of contour line separately
-        vArr = Plot_Contour_xyz(xy, z, , , , True, , , 0.3, 0.9, 0.3, 0.9, True)
-        .Range("L2:AT1048576").Clear
-        If Not VBA.IsError(vArr) Then .Range("L2").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
+        vArr = Plot_Contour_xyz(xy, z, , , 3, True, , , , , , , True)
+        .Range("O2:AZ1048576").Clear
+        If Not VBA.IsError(vArr) Then .Range("O2").Resize(UBound(vArr, 1), UBound(vArr, 2)).Value = vArr
         
     End With
 
