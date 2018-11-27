@@ -43,6 +43,40 @@ Public Property Get n_edge() As Long
     n_edge = pn_edge
 End Property
 
+'========================================================================================
+'Output edge_list(1:n_edge,1:2), edge_length(1:n_edge), node_pos(1:n,1:2), node_wgt(1:n)
+'which can be used to create new graph class cGraph_Dir or cGraph_Undir
+'========================================================================================
+Sub Output_Graph_node_pos(node_pos() As Double)
+    node_pos = px
+End Sub
+
+Sub Output_Graph_node_wgt(node_wgt() As Double)
+    node_wgt = px_value
+End Sub
+
+Sub Output_Graph_EdgeList(edge_list() As Long, edge_length() As Double)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_edge As Long
+Dim EdgeVisited As Collection
+Dim x_edge As cQuadEdge
+    Call Traverse_All_Edges(EdgeVisited)
+    k = 0
+    n_edge = EdgeVisited.count
+    ReDim edge_list(1 To n_edge, 1 To 2)
+    ReDim edge_length(1 To n_edge)
+    Do While EdgeVisited.count > 0
+        k = k + 1
+        Set x_edge = EdgeVisited(1)
+        EdgeVisited.Remove (1)
+        i = x_edge.Org: j = x_edge.Dest
+        edge_list(k, 1) = i
+        edge_list(k, 2) = j
+        edge_length(k) = Sqr((px(i, 1) - px(j, 1)) ^ 2 + (px(i, 2) - px(j, 2)) ^ 2)
+    Loop
+    Set x_edge = Nothing
+    Set EdgeVisited = Nothing
+End Sub
+      
 '=========================================================================
 'Plot the grid-lines of delaunay triangulation as scatter chart in Excel
 'node_list(1:M) stores the corresponding integer pointer to input dataset
