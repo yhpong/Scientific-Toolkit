@@ -309,7 +309,7 @@ Dim A As cQuadEdge, B As cQuadEdge
 Dim EdgeStack As Collection
 Dim isVisited() As Long
 
-    ReDim isVisited(1 To pn)
+    ReDim isVisited(1 To UBound(px, 1))
     Set EdgeVisited = New Collection    'edges in visited order
     Set EdgeStack = New Collection      'Stack of edges to be visited next
     Set A = pEdge_L                     'First edge pointer
