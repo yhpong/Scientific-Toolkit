@@ -19,7 +19,7 @@ Option Explicit
 
 Private pn As Long, pn_dimension As Long, pn_edge As Long
 Private px() As Double          'vertex positions (1:N,1:2)
-Private px_value() As Double      'value (height, density..etc.) at each vertex (1:N)
+Private px_value() As Double    'value (height, density..etc.) at each vertex (1:N)
 Private px_sort_idx() As Long   'order of vertices (1:N)
 Private pEdge_L As cQuadEdge    'CCW convex hull edge out of leftmost vertex
 Private pEdge_R As cQuadEdge    'CW convex hull edge out of rightmost vertex
@@ -76,7 +76,149 @@ Dim x_edge As cQuadEdge
     Set x_edge = Nothing
     Set EdgeVisited = Nothing
 End Sub
-      
+
+'=========================================
+'Find nearest neighbor
+'=========================================
+Sub Output_Nearest_Neigh(neigh_idx As Variant, neigh_dist As Variant, _
+                    Optional u As Long = -1, _
+                    Optional u_x As Variant = Null, Optional u_y As Variant = Null)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, v As Long
+Dim n_edge As Long
+Dim tmp_x As Double, min_dist As Double
+Dim EdgeVisited As Collection
+Dim x_edge As cQuadEdge, y_edge As cQuadEdge
+Dim iArr() As Long
+Dim xArr() As Double
+Dim vArr As Variant
+    If u > 0 Then
+        'Find nearest neighbor of a single node
+        neigh_idx = -1: neigh_dist = Exp(70)
+        Call Locate(u, x_edge)
+        If x_edge Is Nothing Then Exit Sub  'u is a discarded duplicate, returns nothing
+        Set y_edge = x_edge
+        Do
+            v = x_edge.Dest
+            tmp_x = Sqr((px(u, 1) - px(v, 1)) ^ 2 + (px(u, 2) - px(v, 2)) ^ 2)
+            If tmp_x < neigh_dist Then
+                neigh_idx = v
+                neigh_dist = tmp_x
+            End If
+            Set x_edge = x_edge.Onext
+            If x_edge Is y_edge Then Exit Do
+        Loop
+    ElseIf u = -1 And (IsNull(u_x) Or IsNull(u_y)) Then
+        'Find nearest neighbor of all nodes
+        n = UBound(px, 1)
+        ReDim neigh_idx(1 To n)
+        ReDim neigh_dist(1 To n)
+        Call Traverse_All_Edges(EdgeVisited, True)
+        n_edge = EdgeVisited.count
+        ReDim iArr(1 To n_edge)
+        ReDim xArr(1 To n_edge)
+        For m = 1 To n_edge
+            Set x_edge = EdgeVisited(m)
+            i = x_edge.Org
+            j = x_edge.Dest
+            iArr(m) = m
+            xArr(m) = Sqr((px(i, 1) - px(j, 1)) ^ 2 + (px(i, 2) - px(j, 2)) ^ 2)
+        Next m
+        Call Sort_Quick_A(xArr, 1, n_edge, iArr)
+        n = 0
+        For m = 1 To n_edge
+
+            k = iArr(m)
+            tmp_x = xArr(m)
+            Set x_edge = EdgeVisited(k)
+            i = x_edge.Org
+            j = x_edge.Dest
+            If neigh_idx(i) = 0 Then
+                neigh_idx(i) = j: neigh_dist(i) = tmp_x: n = n + 1
+            End If
+            If neigh_idx(j) = 0 Then
+                neigh_idx(j) = i: neigh_dist(j) = tmp_x: n = n + 1
+            End If
+            
+            If n = pn Then Exit For
+            
+        Next m
+        Set x_edge = Nothing
+        Set EdgeVisited = Nothing
+        
+    ElseIf Not IsNull(u_x) And Not IsNull(u_y) Then
+    
+        'Find the points the surround an arbitrary (u_x,u_y)
+        Call Locate_xy(CDbl(u_x), CDbl(u_y), x_edge, i, j, k)
+        If Not x_edge Is Nothing Then
+            m = 3: If k < 0 Then m = 2
+            ReDim iArr(1 To m)
+            ReDim xArr(1 To m)
+            iArr(1) = i: xArr(1) = Sqr((u_x - px(i, 1)) ^ 2 + (u_y - px(i, 2)) ^ 2)
+            iArr(2) = j: xArr(2) = Sqr((u_x - px(j, 1)) ^ 2 + (u_y - px(j, 2)) ^ 2)
+            If m = 3 Then iArr(3) = k: xArr(3) = Sqr((u_x - px(k, 1)) ^ 2 + (u_y - px(k, 2)) ^ 2)
+            Call Sort_Quick_A(xArr, 1, m, iArr, 0)
+            neigh_idx = iArr(1): neigh_dist = xArr(1)
+        Else
+            neigh_idx = -1: neigh_dist = Exp(70)
+            Call Plot_ConvexHull(vArr, iArr)
+            For i = 1 To UBound(iArr, 1)
+                v = iArr(i)
+                tmp_x = Sqr((u_x - px(v, 1)) ^ 2 + (u_y - px(v, 2)) ^ 2)
+                If tmp_x < neigh_dist Then
+                    neigh_idx = v
+                    neigh_dist = tmp_x
+                End If
+            Next i
+            Call Locate(Int(neigh_idx), x_edge)
+            Set y_edge = x_edge
+            Do
+                v = x_edge.Dest
+                tmp_x = Sqr((u_x - px(v, 1)) ^ 2 + (u_y - px(v, 2)) ^ 2)
+                If tmp_x < neigh_dist Then
+                    neigh_idx = v
+                    neigh_dist = tmp_x
+                End If
+                Set x_edge = x_edge.Onext
+                If x_edge Is y_edge Then Exit Do
+            Loop
+            
+        End If
+        
+    End If
+    
+End Sub
+
+'locate an edge that originate from u, returns nothing if u has been excluded as duplicate
+Private Sub Locate(u As Long, tgt_edge As cQuadEdge)
+Dim A As cQuadEdge
+Dim tmp_x As Double, tmp_y As Double
+    tmp_x = px(u, 1)
+    tmp_y = px(u, 2)
+    Set A = pEdge_L
+    Do
+        If u = A.Org Then
+            Set tgt_edge = A
+            Exit Do
+        ElseIf u = A.Dest Then
+            Set tgt_edge = A.Sym
+            Exit Do
+        ElseIf Almost_Equal(tmp_x, px(A.Org, 1)) And Almost_Equal(tmp_y, px(A.Org, 2)) Then
+            Set tgt_edge = Nothing
+            Exit Do
+        ElseIf Almost_Equal(tmp_x, px(A.Dest, 1)) And Almost_Equal(tmp_y, px(A.Dest, 2)) Then
+            Set tgt_edge = Nothing
+            Exit Do
+        ElseIf isRightOf_xy(tmp_x, tmp_y, A) Then
+            Set A = A.Sym
+        ElseIf Not isRightOf_xy(tmp_x, tmp_y, A.Onext) Then
+            Set A = A.Onext
+        ElseIf Not isRightOf_xy(tmp_x, tmp_y, A.Dprev) Then
+            Set A = A.Dprev
+        End If
+    Loop
+End Sub
+            
+            
 '=========================================================================
 'Plot the grid-lines of delaunay triangulation as scatter chart in Excel
 'node_list(1:M) stores the corresponding integer pointer to input dataset
@@ -101,6 +243,41 @@ Dim EdgeVisited As Collection
     Set EdgeVisited = Nothing
 End Function
 
+'=========================================================================
+'Plot the lines of convex hull as scatter chart in Excel
+'node_list(1:M) store the nodes that are located on the hull
+'=========================================================================
+Sub Plot_ConvexHull(vArr As Variant, Optional node_list As Variant)
+Dim i As Long, j As Long, k As Long, u As Long, v As Long
+Dim A As cQuadEdge
+Dim uArr As Variant
+    Set A = pEdge_L
+    u = A.Org
+    k = 0
+    ReDim node_list(1 To 1)
+    ReDim uArr(1 To 2, 1 To 1)
+    Do
+        v = A.Org
+        k = k + 1
+        ReDim Preserve node_list(1 To k)
+        ReDim Preserve uArr(1 To 2, 1 To k)
+        node_list(k) = v
+        uArr(1, k) = px(v, 1)
+        uArr(2, k) = px(v, 2)
+        Set A = A.Rprev
+        If A Is pEdge_L Then Exit Do
+    Loop
+    
+    ReDim vArr(1 To k + 1, 1 To 2)
+    For i = 1 To k
+        vArr(i, 1) = uArr(1, i)
+        vArr(i, 2) = uArr(2, i)
+    Next i
+    vArr(k + 1, 1) = px(u, 1)
+    vArr(k + 1, 2) = px(u, 2)
+    Erase uArr
+End Sub            
+                
 '=========================================================================
 'Plot the grid-lines of Voronoi diagram as scatter chart in Excel
 '=========================================================================
