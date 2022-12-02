@@ -16,7 +16,7 @@ Option Explicit
 '===============================================
 Private pn_dimension As Long
 Private pParent As ckdTree, pChild_L As ckdTree, pChild_R As ckdTree
-Private pDepth As Long, pisLeaf As Long, pPtr As Long
+Private pDepth As Long, pisLeaf As Long, pPtr As Long, pPtrs As Variant
 Private pSplitDim As Long, pSplitVal As Double
 
 '==========================================
@@ -40,6 +40,10 @@ End Property
 
 Public Property Get ptr() As Long
     ptr = pPtr
+End Property
+
+Public Property Get ptrs() As Long()
+    ptrs = pPtrs
 End Property
 
 Public Property Get SplitDim() As Long
@@ -67,7 +71,7 @@ End Sub
 'Recursive step
 Sub z_Build_Tree_Recursive(x As Variant, idx() As Long, cur_depth As Long, _
         min_size As Long, max_depth As Long, n_dimension As Long, vparent As ckdTree)
-Dim i As Long, j As Long, k As Long, n As Long, n1 As Long, n2 As Long
+Dim i As Long, j As Long, k As Long, n As Long, N1 As Long, N2 As Long
 Dim idx1() As Long, idx2() As Long
 Dim xk() As Double
     n = UBound(idx)
@@ -77,6 +81,12 @@ Dim xk() As Double
     If n <= min_size Or cur_depth >= max_depth Then
         pisLeaf = 1
         pPtr = idx(1)
+        If n > 1 Then
+            ReDim pPtrs(1 To n)
+            For i = 1 To n
+                pPtrs(i) = idx(i)
+            Next i
+        End If
         Set pChild_L = Nothing
         Set pChild_R = Nothing
         Exit Sub
@@ -92,30 +102,30 @@ Dim xk() As Double
     pSplitVal = xk(i)
     pPtr = idx(i)
 
-    n1 = 0: ReDim idx1(1 To n)
-    n2 = 0: ReDim idx2(1 To n)
+    N1 = 0: ReDim idx1(1 To n)
+    N2 = 0: ReDim idx2(1 To n)
     For i = 1 To n
         j = idx(i)
         If j <> pPtr Then
-            If xk(i) < pSplitVal Then
-                n1 = n1 + 1
-                idx1(n1) = j
+            If xk(i) <= pSplitVal Then
+                N1 = N1 + 1
+                idx1(N1) = j
             Else
-                n2 = n2 + 1
-                idx2(n2) = j
+                N2 = N2 + 1
+                idx2(N2) = j
             End If
         End If
     Next i
-    If n1 > 0 Then
-        ReDim Preserve idx1(1 To n1)
+    If N1 > 0 Then
+        ReDim Preserve idx1(1 To N1)
         Set pChild_L = New ckdTree
         Call pChild_L.z_Build_Tree_Recursive(x, idx1, cur_depth + 1, min_size, max_depth, n_dimension, Me)
     Else
         Set pChild_L = Nothing
     End If
 
-    If n2 > 0 Then
-        ReDim Preserve idx2(1 To n2)
+    If N2 > 0 Then
+        ReDim Preserve idx2(1 To N2)
         Set pChild_R = New ckdTree
         Call pChild_R.z_Build_Tree_Recursive(x, idx2, cur_depth + 1, min_size, max_depth, n_dimension, Me)
     Else
@@ -131,6 +141,109 @@ Sub Reset()
     Set pChild_L = Nothing
     Set pChild_R = Nothing
 End Sub
+
+
+
+'===========================================================
+'Input: x_rng(1:D, 1:2), min and max search range of each dimension
+'Input: x(1:n, 1:D), original data used in building this tree
+'Output: inRng(1:k), integer points to x of points in range, returns inRng(0:0) if no pts are found
+'===========================================================
+Function Range_Search(x_rng As Variant, x As Variant) As Long()
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, n_fit As Long
+Dim inRng() As Long
+Dim vstack() As Long
+    
+    If UBound(x_rng, 1) <> pn_dimension Then
+        Debug.Print "Range_Search: x_rng needs to have dimensions of (1:D, 1:2)"
+        Exit Function
+    End If
+    
+    For i = 1 To pn_dimension
+        If x_rng(i, 1) > x_rng(i, 2) Then
+            Debug.Print "Range_Search: x_rng(" & i & ") min is smaller than max."
+            Exit Function
+        End If
+    Next i
+    
+    n = UBound(x, 1)
+    n_fit = 0
+    ReDim vstack(1 To n)
+    
+    Call z_RangeSearchTraverse(x_rng, vstack, n_fit)
+
+    If n_fit = 0 Then
+        ReDim inRng(0 To 0)
+        Range_Search = inRng
+        Exit Function
+    End If
+    
+    ReDim Preserve vstack(1 To n_fit)
+    ReDim inRng(1 To n_fit)
+
+    n_fit = 0
+    For k = 1 To UBound(vstack, 1)
+        i = vstack(k)
+        m = 0
+        For j = 1 To pn_dimension
+            If x_rng(j, 1) <= x(i, j) And x(i, j) <= x_rng(j, 2) Then
+                m = m + 1
+            End If
+        Next j
+        If m = pn_dimension Then
+            n_fit = n_fit + 1
+            inRng(n_fit) = i
+        End If
+    Next k
+    
+    If n_fit = 0 Then
+        ReDim inRng(0 To 0)
+        Range_Search = inRng
+        Exit Function
+    End If
+    
+    ReDim Preserve inRng(1 To n_fit)
+    Range_Search = inRng
+    
+End Function
+
+
+Sub z_RangeSearchTraverse(x_rng As Variant, vstack() As Long, n_fit As Long)
+Dim i As Long
+
+    If pisLeaf = 1 Then
+        If IsArray(pPtrs) Then
+            For i = 1 To UBound(pPtrs, 1)
+                n_fit = n_fit + 1
+                vstack(n_fit) = pPtrs(i)
+            Next i
+        Else
+            n_fit = n_fit + 1
+            vstack(n_fit) = pPtr
+        End If
+        Exit Sub
+    Else
+        n_fit = n_fit + 1
+        vstack(n_fit) = pPtr
+    End If
+
+    If pSplitVal < x_rng(pSplitDim, 1) Then
+
+        If Not pChild_R Is Nothing Then Call pChild_R.z_RangeSearchTraverse(x_rng, vstack, n_fit)
+        
+    ElseIf x_rng(pSplitDim, 2) < pSplitVal Then
+
+        If Not pChild_L Is Nothing Then Call pChild_L.z_RangeSearchTraverse(x_rng, vstack, n_fit)
+        
+    ElseIf x_rng(pSplitDim, 1) <= pSplitVal And pSplitVal <= x_rng(pSplitDim, 2) Then
+
+        If Not pChild_L Is Nothing Then Call pChild_L.z_RangeSearchTraverse(x_rng, vstack, n_fit)
+        If Not pChild_R Is Nothing Then Call pChild_R.z_RangeSearchTraverse(x_rng, vstack, n_fit)
+        
+    End If
+    
+End Sub
+
 
 '===========================================================
 'For a given vector x_tgt(1:D), return an integer pointer to
@@ -270,6 +383,9 @@ Dim u As ckdTree
     Call u.z_Add_to_Stack_Speed(x_tgt, x, vstack, isVisited, min_dist, best_node, dist_type, _
             tgt, tgt_dist)
 End Sub
+
+
+
 
 
 '=== Find k nearest neighbors for every data point in x()
@@ -591,7 +707,7 @@ Sub z_kMean_Build_Tree_Recursive(x As Variant, idx() As Long, cur_depth As Long,
         n_dimension As Long, _
         node_size() As Long, node_wgtcenter As Variant, node_min() As Double, node_max() As Double, _
         dist_type As String)
-Dim i As Long, j As Long, k As Long, n As Long, n1 As Long, n2 As Long
+Dim i As Long, j As Long, k As Long, n As Long, N1 As Long, N2 As Long
 Dim idx1() As Long, idx2() As Long
 Dim xk() As Double, tmp_vec() As Double
 Dim tmp_x As Double, tmp_y As Double, tmp_min As Double, tmp_max As Double
@@ -643,22 +759,22 @@ Dim INFINITY As Double
         node_max(pPtr, k) = tmp_max
     Next k
     
-    n1 = 0: ReDim idx1(1 To n)
-    n2 = 0: ReDim idx2(1 To n)
+    N1 = 0: ReDim idx1(1 To n)
+    N2 = 0: ReDim idx2(1 To n)
     For i = 1 To n
         j = idx(i)
         If j <> pPtr Then
             If xk(i) < pSplitVal Then
-                n1 = n1 + 1
-                idx1(n1) = j
+                N1 = N1 + 1
+                idx1(N1) = j
             Else
-                n2 = n2 + 1
-                idx2(n2) = j
+                N2 = N2 + 1
+                idx2(N2) = j
             End If
         End If
     Next i
-    If n1 > 0 Then
-        ReDim Preserve idx1(1 To n1)
+    If N1 > 0 Then
+        ReDim Preserve idx1(1 To N1)
         Set pChild_L = New ckdTree
         Call pChild_L.z_kMean_Build_Tree_Recursive(x, idx1, cur_depth + 1, n_dimension, _
                 node_size, node_wgtcenter, node_min, node_max, dist_type)
@@ -666,8 +782,8 @@ Dim INFINITY As Double
         Set pChild_L = Nothing
     End If
 
-    If n2 > 0 Then
-        ReDim Preserve idx2(1 To n2)
+    If N2 > 0 Then
+        ReDim Preserve idx2(1 To N2)
         Set pChild_R = New ckdTree
         Call pChild_R.z_kMean_Build_Tree_Recursive(x, idx2, cur_depth + 1, n_dimension, _
                 node_size, node_wgtcenter, node_min, node_max, dist_type)
