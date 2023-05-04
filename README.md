@@ -192,6 +192,50 @@ The wine samples are shown in the above figures as MST on the left and PMFG on t
 
 One big issue in this implementation is that PMFG takes very long time to create. It's using the method from [Boyer and Myrvold, 2004](http://jgaa.info/accepted/2004/BoyerMyrvold2004.8.3.pdf) to check for planarity at every addition of edge. If you are doing anything more than 500 nodes it's just impractical. If you know a faster way to do this please feel free to share with me. I suspect there's no need to run the full planarity test after every additonal edge.
 
+### Word Embedding
+
+Requires: [cWordEmbed.cls](Modules/cWordEmbed.cls)
+
+This is an implementation of Word2Vec in VBA. The algorithm was published by [Tomas Mikolov et al in 2013](https://arxiv.org/abs/1301.3781). It supports both architectures of Skip-gram and Continous Bag of Words (CBOW). I didn't implement negative sampling here since it's unlikely anyone would handle any real world NLP task in Excel.
+
+In most basic words, what this implementation does is to:
+1. Ingest sources of texts.
+2. Build a dictionary of unique words that appear in these texts.
+3. Use a neural network to encode all these words into fixed length numerical vectors.
+4. Decode these numerical vectors into words with another layer of network.
+5. Train the encode and decoder networks so the decoded text are indeed related to the input text, which is quantified as how well an input word(s) predict(s) the words near it.
+
+When this is done, the encoder allows us to represent each word as a numerical vector, which is a "good enough" representation to approximate each word's context.
+One interesting thing to do is that we can further use dimensional reduction technique to project these numerical vectors onto 2D plane and visualize how words in similar context are clustered together.
+
+In this experiment, I took 3 short pieces of texts from Alice in Wonderland, a random news article from Hong Kong, and the first few paragraphs from the Wikipedia page on "Word Embedding". Combined together the sample contains 1738 words in total, and 669 unique words. I embedded them to length 32 vectors using the Skip-Gram algorithm and projected them to a 2D plane with t-SNE (See above t-SNE section) for visualization.
+
+The code to build the embedding is like this, where strRaw is a string variable of the input text:
+```
+'Build embedding
+Set cW2V = New cWordEmbed
+With cW2V
+    Call .BuildDict(strRaw, False)  'Build dictionary from training text
+    Call .BuildEmbedding("SKIPGRAM", strRaw, _
+                        n_embed:=32, n_window:=9, _
+                        n_epoch:=500, n_batch:=10, _
+                        learn_rate:=0.01, _
+                        useSpeedUp:="ADAM", learnSchedule:="AGGRESSIVE", _
+                        err_tol:=0.3)
+    Call .PrintEmbed(ThisWorkbook.Sheets("Saved"))  'print trained network in a worksheet
+    Call .PrintDict(ThisWorkbook.Sheets("Dict").Range("A3"))    'print only the dictionary for labelling in scatter plot
+    win = .win      'export embedding for later use, e.g. PCA, t-SNE
+    v = .progress   'export training progress for inspection
+End With
+```
+
+For the purpose of clarity, I color coded the words and bubbles so that they are blue if they are from Alice in Wonderland, red if they are from the news article, and brown if they are from Wikipedia. I also used bubble size to show how frequent they appear in the training sample.
+
+![wordembedtsne](Screenshots/embed_tsne.jpg)
+
+It can be clearly seen that the words are grouped into clusters. The frequetly appearing words like "the", "of", "and", "to" are all clustered togehter in the middle, while the more topic specific words are in the outer clusters. As a quick sanity check, I highlighted the word pairs "hong"-"kong" and "rabbit"-"hole", and see that they are indeed close to each other. The more interesting words are "word" and "words" themselves. They appear both in Alice in Wonderland and the Wiki page. So they appear near the border of both clusters.
+One should be reminded that the embedding is still a 32-D space, which is trained from a random network. And t-SNE is only one way to visualize it on 2D plance, and t-SNE itself is also a random process. So the embedding and its visualization is by no means unique and will vary from run to run. The purpose here is simply to make it a "good enough" representation to help us identify any underlying structures, if any, in the training text. In the Excel file [WordEmbedding.xlsx](WordEmbedding.xlsx) I also included a visualiztion using the first 2 components of PCA (see PCA technique above), which takes out the randomness at least from the visualization part. 
+
 ### Outliers Detection
 
 Requires: [mOutliers.bas](Modules/mOutliers.bas)
