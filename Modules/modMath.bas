@@ -690,6 +690,186 @@ End Sub
 '========================================
 ' Random Numbers
 '========================================
+'Returns a 1D array of Sample(1:n_required)
+'Alias method copied from:
+'https://www.keithschwarz.com/darts-dice-coins/
+'x_in       either a 1D array or a single integer, in latter case outputs are sampled from an integer sequence 1:n
+'n_required number of samples to draw
+'isReplace  sample without replacement when set to False, default is True
+'x_prob     discrete prob dists as 1D arary of same length as x_in, assumed uniform if missing
+Function Sample(x_in, n_required As Long, Optional isReplace As Boolean = True, Optional x_prob As Variant)
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, ii As Long, jj As Long
+Dim x_idx() As Long, x_sample As Variant
+Dim x_acceptance() As Double, x_alias() As Long
+Dim q_small As cQueue, q_large As cQueue
+Dim p() As Double
+Dim tmp_x As Double, tmp_y As Double
+Dim x As Variant
+
+    If Not IsArray(x_in) Then
+        n = Int(x_in)
+        ReDim x(1 To n)
+        For i = 1 To n
+            x(i) = i
+        Next i
+    Else
+        n = UBound(x, 1)
+        ReDim x(1 To n)
+        For i = 1 To n
+            x(i) = x_in(i)
+        Next i
+    End If
+    
+    If isReplace = False Then
+        If n_required > n Then
+            Debug.Print "Sample: n_required (" & n_required & ") cannot be larger than n (" & n & ") when isReplace is False."
+            End
+        End If
+    End If
+    ReDim x_sample(1 To n_required)
+    
+    If IsMissing(x_prob) Then
+        If isReplace Then
+            For i = 1 To n_required
+                k = Int(Rnd() * n) + 1
+                x_sample(i) = x(k)
+            Next i
+        Else
+            ReDim x_idx(1 To n)
+            ReDim p(1 To n)
+            For i = 1 To n
+                x_idx(i) = i
+                p(i) = Rnd()
+            Next i
+            Call Sort_Quick_A(p, 1, n, x_idx, 1)
+            For i = 1 To n_required
+                x_sample(i) = x(x_idx(i))
+            Next i
+        End If
+        Sample = x_sample
+        Exit Function
+    End If
+    
+    If isReplace Then
+        
+        If n_required <= 50 Then
+        
+            ReDim p(1 To n)
+            p(1) = x_prob(1)
+            For i = 2 To n
+                p(i) = p(i - 1) + x_prob(i)
+            Next i
+            For i = 1 To n_required
+                x_sample(i) = x(Random_Integer_Prob(p, True))
+            Next i
+
+        Else
+            
+            'for larger numbers use alias method
+            ReDim p(1 To n)
+            ReDim x_acceptance(1 To n)
+            ReDim x_alias(1 To n)
+            For i = 1 To n
+                p(i) = x_prob(i) * n
+            Next i
+    
+            Set q_small = New cQueue
+            Set q_large = New cQueue
+            Call q_small.Init(n)
+            Call q_large.Init(n)
+    
+            For i = 1 To n
+                If p(i) < 1 Then
+                    Call q_small.Add(i)
+                Else
+                    Call q_large.Add(i)
+                End If
+            Next i
+    
+            Do While q_small.size > 0 And q_large.size > 0
+                i = q_small.Pop
+                j = q_large.Pop
+                x_acceptance(i) = p(i)
+                x_alias(i) = j
+                p(j) = p(j) + p(i) - 1
+                If p(j) < 1 Then
+                    Call q_small.Add(j)
+                Else
+                    Call q_large.Add(j)
+                End If
+            Loop
+    
+            Do While q_large.size > 0
+                j = q_large.Pop
+                x_acceptance(j) = 1
+            Loop
+            
+            Do While q_small.size > 0
+                j = q_small.Pop
+                x_acceptance(j) = 1
+            Loop
+    
+            For i = 1 To n_required
+                tmp_x = Rnd()
+                k = Int(tmp_x * n) + 1
+                tmp_y = tmp_x * n + 1 - k
+                If tmp_y < x_acceptance(k) Then
+                    x_sample(i) = x(k)
+                Else
+                    x_sample(i) = x(x_alias(k))
+                End If
+            Next i
+            
+        End If
+        
+        Sample = x_sample
+        Exit Function
+        
+    End If
+    
+    If n_required <= 50 Then
+        ReDim p(1 To n)
+        For i = 1 To n
+            p(i) = x_prob(i)
+        Next i
+        ReDim x_sample(1 To n_required)
+        For i = 1 To n_required
+            k = Random_Integer_Prob(p, False)
+            x_sample(i) = x(k)
+            tmp_x = 1 - p(k)
+            p(k) = 0
+            For j = 1 To n
+                p(j) = p(j) / tmp_x
+            Next j
+        Next i
+    Else
+        'Exponential-sort trick from
+        'https://timvieira.github.io/blog/post/2019/09/16/algorithms-for-sampling-without-replacement/
+        ReDim p(1 To n)
+        ReDim x_idx(i)
+        For i = 1 To n
+            If x_prob(i) > 0 Then
+                tmp_x = Rnd()
+                If tmp_x < 0.000000001 Then
+                    p(i) = Exp(70)
+                Else
+                    p(i) = -Log(tmp_x) / x_prob(i)
+                End If
+            Else
+                p(i) = Exp(70)
+            End If
+            x_idx(i) = i
+        Next i
+        Call Sort_Quick_A(p, 1, n, x_idx, 1)
+        For i = 1 To n_required
+            x_sample(i) = x(x_idx(i))
+        Next i
+    End If
+    
+    Sample = x_sample
+    
+End Function
+
 
 'A Random integer between lower to upper, including end points
 Function Random_Integer(lower As Long, upper As Long) As Long
@@ -719,12 +899,12 @@ Dim prob_C() As Double
     Else
         Random_Integer_Prob = Binary_Search_Db(prob_C, tmp_x) + 1
         If Random_Integer_Prob > n Then Random_Integer_Prob = n
-        For i = 2 To n
-            If prob_C(i - 1) < tmp_x And tmp_x <= prob_C(i) Then
-                Random_Integer_Prob = i
-                Exit For
-            End If
-        Next i
+'        For i = 2 To n
+'            If prob_C(i - 1) < tmp_x And tmp_x <= prob_C(i) Then
+'                Random_Integer_Prob = i
+'                Exit For
+'            End If
+'        Next i
     End If
     Erase prob_C
 End Function
