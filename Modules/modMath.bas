@@ -1718,6 +1718,129 @@ Erase xA, x2
 End Sub
 
 
+'Robust Linear Regression
+Sub linear_regression_robust(y As Variant, x As Variant, y_slope() As Double, _
+                        Optional iter_max As Long = 1000, Optional err_tol_rel As Double = 0.0001, _
+                        Optional strPsi As String = "huber")
+Dim i As Long, j As Long, k As Long, m As Long, n As Long, iterate As Long
+Dim n_raw As Long, n_dimension As Long, n_converge As Long
+Dim tmp_x As Double
+Dim x2() As Double, x3() As Double, xA() As Double
+Dim x_err() As Double, y_est() As Double
+Dim wgt() As Double, x_obj As Double, x_obj_prv As Double, x_mad As Double, x_tol As Double
+
+    n_raw = UBound(y)
+    n_dimension = UBound(x, 2)
+    n = n_dimension + 1
+    
+    ReDim y_slope(1 To n)
+    
+    x2 = x
+    ReDim Preserve x2(1 To n_raw, 1 To n)
+    For i = 1 To n_raw
+        x2(i, n) = 1
+    Next i
+    
+    xA = Matrix_InverseP(x2)
+    For j = 1 To n
+        tmp_x = 0
+        For i = 1 To n_raw
+            tmp_x = tmp_x + xA(j, i) * y(i)
+        Next i
+        y_slope(j) = tmp_x
+    Next j
+    
+    ReDim x3(1 To n_raw, 1 To n)
+    x_obj_prv = Exp(70)
+    n_converge = 0
+    For iterate = 1 To iter_max
+        
+        ReDim y_est(1 To n_raw)
+        For j = 1 To n
+            tmp_x = y_slope(j)
+            For i = 1 To n_raw
+                y_est(i) = y_est(i) + x2(i, j) * tmp_x
+            Next i
+        Next j
+        
+        ReDim x_err(1 To n_raw)
+        For i = 1 To n_raw
+            x_err(i) = Abs(y_est(i) - y(i))
+        Next i
+        x_mad = Application.WorksheetFunction.Median(x_err)
+        
+        If x_mad = 0 Then Exit For
+        
+        x_obj = 0
+        ReDim wgt(1 To n_raw)
+        If UCase(strPsi) = "HUBER" Then
+        
+            x_tol = 1.345 * x_mad / 0.6745
+            For i = 1 To n_raw
+                If x_err(i) <= x_tol Then
+                    wgt(i) = 1
+                    x_obj = x_obj + 0.5 * x_err(i) ^ 2
+                Else
+                    wgt(i) = Sqr(x_tol / x_err(i))
+                    x_obj = x_obj + x_tol * x_err(i) - 0.5 * x_tol ^ 2
+                End If
+            Next i
+
+        ElseIf UCase(strPsi) = "BISQUARE" Then
+
+            x_tol = 4.685 * x_mad / 0.6745
+            For i = 1 To n_raw
+                If x_err(i) <= x_tol Then
+                    tmp_x = 1 - (x_err(i) / x_tol) ^ 2
+                    wgt(i) = tmp_x
+                    x_obj = x_obj + (1 - tmp_x ^ 3)
+                Else
+                    wgt(i) = 0
+                End If
+            Next i
+            x_obj = x_obj * (x_tol ^ 2) / 6
+        
+        End If
+        
+        x_obj = x_obj / n_raw
+        
+        
+        If Abs(x_obj_prv - x_obj) <= Abs(x_obj_prv * err_tol_rel) Then
+            n_converge = n_converge + 1
+        Else
+            n_converge = 0
+        End If
+        
+        If n_converge >= 5 Then
+            Exit For
+        End If
+        
+        x_obj_prv = x_obj
+        
+        For j = 1 To n
+            For i = 1 To n_raw
+                x3(i, j) = x2(i, j) * wgt(i)
+            Next i
+        Next j
+        
+        DoEvents
+        ReDim y_slope(1 To n)
+        xA = Matrix_InverseP(x3)
+        For j = 1 To n
+            tmp_x = 0
+            For i = 1 To n_raw
+                tmp_x = tmp_x + xA(j, i) * wgt(i) * y(i)
+            Next i
+            y_slope(j) = tmp_x
+        Next j
+
+    Next iterate
+
+    Erase xA, x2, x3
+End Sub
+
+
+
 'Multivariate linear regression of y(1 to N) vs x(1 to N, 1 to D)
 'using the method of gradient descent
 'Returns coeff(0 to D) where the 0-th element is the intercept
@@ -6465,6 +6588,72 @@ Dim LU() As Double, p() As Long, IA() As Double
 End Function
 
 
+'Input: A(1:m,1:n)
+'Output: B(1:n,1:m), the pseudo inverse of A s.t. ABA=A
+Function Matrix_InverseP(A() As Double)
+Dim i As Long, j As Long, k As Long, n As Long, m As Long
+Dim x() As Double, u() As Double, s() As Double, v() As Double
+Dim xinv() As Double
+Dim tmp_x As Double
+Dim isTranspose As Boolean
+Dim x_tol As Double
+
+    isTranspose = False
+    m = UBound(A, 1)
+    n = UBound(A, 2)
+    If m <= n Then
+        Call modMath.Matrix_SVD(A, u, s, v)
+    Else
+        isTranspose = True
+        ReDim x(1 To n, 1 To m)
+        For i = 1 To n
+            For j = 1 To m
+                x(i, j) = A(j, i)
+            Next j
+        Next i
+        Call modMath.Matrix_SVD(x, u, s, v)
+        i = m
+        m = n
+        n = i
+    End If
+    
+    x_tol = s(1)
+    For i = 2 To m
+        If s(i) > x_tol Then x_tol = s(i)
+    Next i
+    x_tol = x_tol * n * 0.000000000001
+    
+    ReDim x(1 To m, 1 To m)
+    For i = 1 To m
+        If s(i) > x_tol Then
+            For j = 1 To m
+                x(i, j) = u(j, i) / s(i)
+            Next j
+        End If
+    Next i
+    
+    If isTranspose Then
+        ReDim xinv(1 To m, 1 To n)
+    Else
+        ReDim xinv(1 To n, 1 To m)
+    End If
+    For i = 1 To n
+        For j = 1 To m
+            tmp_x = 0
+            For k = 1 To m
+                tmp_x = tmp_x + v(i, k) * x(k, j)
+            Next k
+            If isTranspose Then
+                xinv(j, i) = tmp_x
+            Else
+                xinv(i, j) = tmp_x
+            End If
+        Next j
+    Next i
+    
+    Matrix_InverseP = xinv
+
+End Function
 
 
 
